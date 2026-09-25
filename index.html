@@ -117,13 +117,16 @@ input,select,textarea{font:1rem var(--sans);padding:9px 10px;border:1px solid #C
 .btnrow{display:flex;flex-wrap:wrap;gap:8px}
 
 .toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:20;
-  background:var(--ink);color:var(--card);padding:9px 16px;border-radius:999px;font-size:.88rem;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+  background:var(--ink);color:var(--card);padding:9px 16px;border-radius:999px;font-size:.88rem;opacity:0;transition:opacity .2s;pointer-events:none;width:max-content;max-width:88vw;text-align:center;line-height:1.35}
 .toast.show{opacity:1}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 .cats{padding:6px 16px 2px}
 .rowlabel{flex:none;align-self:center;min-width:66px;font:italic .85rem var(--serif);color:rgba(253,252,247,.6)}
 .pill.add{border-style:dashed;color:rgba(253,252,247,.75)}
 #editSheet{z-index:12}
+.chip.whole{background:var(--desk);color:var(--card)}
+.browsehead{margin:10px 0 2px}
+optgroup{font-style:normal}
 .rowbtns{display:flex;gap:14px;flex:none}
 .catrow button.edit{color:var(--desk)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -234,13 +237,17 @@ const SCOPES = {
   social: { label: 'Economics, social sciences and humanities', field: '20|33|12' },
   any: { label: 'All fields', field: '' }
 };
-const SEED_FIELDS = ['20', '33', '12'];
-/* Default subjects start with a search term; on first use it is swapped for the best-matching OpenAlex topics. */
+const ECON_FIELD = '20';
+// Fields offered when browsing: humanities, business, decision sciences, economics, psychology, social sciences
+const CATALOG_FIELDS = '12|14|18|20|32|33';
+/* OpenAlex hierarchy: 4 domains > 26 fields > ~250 subfields > ~4,500 topics.
+   All of economics is essentially one subfield, so econ specialties are defined here as
+   crossovers: papers tagged with a topic from another discipline's subfield AND an economics topic. */
 const DEFAULT_SUBJECTS = [
-  { id: 's-hist', name: 'Economic history', seed: 'economic history' },
-  { id: 's-polecon', name: 'Political economy', seed: 'political economy' },
-  { id: 's-lawecon', name: 'Law & economics', seed: 'law and economics' },
-  { id: 's-dev', name: 'Development', seed: 'economic development' }
+  { id: 's-hist', name: 'Economic history', subfields: [{ id: '1202', name: 'History' }], topics: [], econ: true },
+  { id: 's-polecon', name: 'Political economy', subfields: [{ id: '3320', name: 'Political Science and International Relations' }, { id: '3312', name: 'Sociology and Political Science' }], topics: [], econ: true },
+  { id: 's-lawecon', name: 'Law & economics', subfields: [{ id: '3308', name: 'Law' }], topics: [], econ: true },
+  { id: 's-dev', name: 'Development', subfields: [{ id: '3303', name: 'Development' }], topics: [], econ: true }
 ];
 const DEFAULT_KEYWORDS = [
   { id: 'k-france', name: 'France', q: 'France OR French OR "Ancien Regime"', scope: 'social' }
@@ -249,7 +256,14 @@ const DEFAULT_KEYWORDS = [
 let apiKey = LS.get('key', '');
 let settings = Object.assign({ yearFrom: 1950, yearTo: YEAR, minCites: 10 }, LS.get('settings', {}));
 let subjects = LS.get('subjects', null);
-if (!Array.isArray(subjects)) { subjects = DEFAULT_SUBJECTS.map(s => ({ ...s, topics: [] })); LS.set('subjects', subjects); }
+if (!Array.isArray(subjects)) subjects = [];
+if (LS.get('schema', 0) < 4) {
+  // Replace the earlier auto-picked default subjects; keep any the user created, as topic lists
+  const defIds = DEFAULT_SUBJECTS.map(x => x.id);
+  const own = subjects.filter(x => !defIds.includes(x.id)).map(x => ({ id: x.id, name: x.name, subfields: [], topics: x.topics || [], econ: false }));
+  subjects = [...JSON.parse(JSON.stringify(DEFAULT_SUBJECTS)), ...own];
+  LS.set('subjects', subjects); LS.set('schema', 4); LS.set('defaultsChecked', false);
+}
 let keywords = LS.get('keywords', null);
 if (!Array.isArray(keywords)) {
   // Carry over categories created in earlier versions as keywords
@@ -281,17 +295,18 @@ cleanSel();
 
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2200);
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), msg.length > 60 ? 4500 : 2200);
 }
 
 /* ---------- Query ---------- */
-// Everything selected combines with AND. Subjects: tagged with any of the subject's topics.
+// Everything selected combines with AND. Subjects: tagged with any of the subject's subfields or topics
+// (optionally also with an economics topic).
 // Keywords: words in title or abstract. A keyword's "look in" scope only applies when no subject is selected.
 function buildQuery() {
   const subs = subjects.filter(s => sel.includes(s.id));
   const kws = keywords.filter(k => sel.includes(k.id));
   const filters = [];
-  for (const s of subs) if (s.topics.length) filters.push('topics.id:' + s.topics.slice(0, 100).map(t => t.id).join('|'));
+  for (const s of subs) filters.push(...subjectFilters(s));
   if (kws.length) {
     const q = kws.length === 1 ? kws[0].q : kws.map(k => `(${k.q})`).join(' AND ');
     filters.push('title_and_abstract.search:' + q.replace(/,/g, ' '));
@@ -303,14 +318,22 @@ function buildQuery() {
       if (inter.length) filters.push('primary_topic.field.id:' + inter.join('|'));
     }
   }
-  const key = ['v3', ...subs.map(s => s.id + ':' + s.topics.map(t => t.id).join('.')), ...kws.map(k => k.id + ':' + k.q + ':' + k.scope)].join('~');
-  return { subs, kws, filters, key, name: [...subs, ...kws].map(x => x.name).join(' + '),
-    emptySubs: subs.filter(s => !s.topics.length && !s.seed) };
+  const key = ['v4', ...subs.map(s => s.id + ':' + JSON.stringify([(s.subfields || []).map(x => x.id), (s.topics || []).map(t => t.id), !!s.econ])), ...kws.map(k => k.id + ':' + k.q + ':' + k.scope)].join('~');
+  return { subs, kws, filters: [...new Set(filters)], key, name: [...subs, ...kws].map(x => x.name).join(' + '),
+    emptySubs: subs.filter(s => !subjectFilters(s).length) };
+}
+function subjectFilters(s) {
+  const f = [], sf = s.subfields || [], tp = s.topics || [];
+  if (sf.length && tp.length) { if (s.expanded && s.expanded.length) f.push('topics.id:' + s.expanded.join('|')); }
+  else if (tp.length) f.push('topics.id:' + tp.slice(0, 100).map(t => t.id).join('|'));
+  else if (sf.length) f.push('topics.subfield.id:' + sf.map(x => x.id).join('|'));
+  if (s.econ && f.length) f.push('topics.field.id:' + ECON_FIELD);
+  return f;
 }
 const qKey = q => [q.key, mode, settings.yearFrom, settings.yearTo, settings.minCites].join('|');
 function problem(q) {
   if (!q.subs.length && !q.kws.length) return allItems().length ? 'Pick a subject or keyword above.' : 'Add a subject or keyword in Settings to start.';
-  if (q.emptySubs.length) return `${joinAnd(q.emptySubs.map(s => s.name))} ${q.emptySubs.length > 1 ? 'have' : 'has'} no OpenAlex topics yet. Add some in Settings.`;
+  if (q.emptySubs.length) return `${joinAnd(q.emptySubs.map(s => s.name))} ${q.emptySubs.length > 1 ? 'have' : 'has'} nothing included yet. Add subfields or topics in Settings.`;
   return null;
 }
 function describe() {
@@ -349,25 +372,67 @@ function worksUrl(q, page) {
   if (apiKey) p.set('api_key', apiKey);
   return 'https://api.openalex.org/works?' + p;
 }
-async function searchTopics(term) {
-  const p = new URLSearchParams({ search: term, per_page: '25', select: 'id,display_name,description,subfield,field,works_count' });
+const normTopic = t => ({
+  id: String(t.id).split('/').pop(), name: t.display_name,
+  sub: t.subfield?.display_name || '', subId: String(t.subfield?.id || '').split('/').pop(),
+  field: t.field?.display_name || '', count: t.works_count || 0, desc: t.description || ''
+});
+const slimTopic = t => ({ id: t.id, name: t.name, sub: t.sub, subId: t.subId, count: t.count });
+function oaUrl(path, params) {
+  const p = new URLSearchParams(params);
   if (apiKey) p.set('api_key', apiKey);
-  const d = await apiGet('https://api.openalex.org/topics?' + p, 'OpenAlex could not run that topic search.');
-  return (d.results || []).map(t => ({
-    id: t.id.split('/').pop(), name: t.display_name, sub: t.subfield?.display_name || '',
-    field: t.field?.display_name || '', fieldId: String(t.field?.id || '').split('/').pop(),
-    count: t.works_count || 0, desc: t.description || ''
-  }));
+  return `https://api.openalex.org/${path}?` + p;
 }
-const slimTopic = t => ({ id: t.id, name: t.name, sub: t.sub, count: t.count });
-async function resolveSeeds() {
-  let did = false;
-  for (const s of subjects.filter(x => x.seed)) {
-    const ts = await searchTopics(s.seed);
-    s.topics = ts.filter(t => SEED_FIELDS.includes(t.fieldId)).slice(0, 4).map(slimTopic);
-    delete s.seed; saveSubjects(); did = true;
+async function searchTopics(term) {
+  const d = await apiGet(oaUrl('topics', { search: term, per_page: '25', select: 'id,display_name,description,subfield,field,works_count' }),
+    'OpenAlex could not run that topic search.');
+  return (d.results || []).map(normTopic);
+}
+const topicCache = new Map();
+async function topicsInSubfield(id) {
+  if (topicCache.has(id)) return topicCache.get(id);
+  const out = [];
+  for (let page = 1; page <= 5; page++) {
+    const d = await apiGet(oaUrl('topics', { filter: 'subfield.id:' + id, sort: 'works_count:desc', per_page: '100', page: String(page),
+      select: 'id,display_name,description,subfield,field,works_count' }), 'OpenAlex could not list this subfield\u2019s topics.');
+    const res = d.results || [];
+    out.push(...res.map(normTopic));
+    if (!res.length || out.length >= (d.meta?.count || 0)) break;
   }
-  return did;
+  topicCache.set(id, out);
+  return out;
+}
+let catalog = LS.get('catalog', null);
+async function loadCatalog() {
+  if (Array.isArray(catalog) && catalog.length) return catalog;
+  const d = await apiGet(oaUrl('subfields', { filter: 'field.id:' + CATALOG_FIELDS, per_page: '100' }), 'OpenAlex could not list subfields.');
+  catalog = (d.results || []).map(x => ({ id: String(x.id).split('/').pop(), name: x.display_name, field: x.field?.display_name || '', count: x.works_count || 0 }))
+    .sort((a, b) => a.field.localeCompare(b.field) || a.name.localeCompare(b.name));
+  LS.set('catalog', catalog);
+  return catalog;
+}
+// Confirms the default subfield ids exist in OpenAlex and picks up their official names
+async function checkDefaults() {
+  const byId = new Map((await loadCatalog()).map(x => [x.id, x]));
+  if (!byId.size) return;
+  const missing = [];
+  for (const sj of subjects) {
+    if (!(sj.subfields || []).length) continue;
+    missing.push(...sj.subfields.filter(x => !byId.has(x.id)).map(x => x.name));
+    sj.subfields = sj.subfields.filter(x => byId.has(x.id)).map(x => ({ id: x.id, name: byId.get(x.id).name }));
+  }
+  saveSubjects(); LS.set('defaultsChecked', true);
+  if (missing.length) toast(`Not found in OpenAlex: ${missing.join(', ')}. Check your subjects in Settings.`);
+}
+async function expandIds(sf, tp) {
+  const ids = new Set(tp.map(t => t.id));
+  for (const x of sf) (await topicsInSubfield(x.id)).forEach(t => ids.add(t.id));
+  return [...ids];
+}
+async function countWorks(filters) {
+  const d = await apiGet(oaUrl('works', { filter: ['has_abstract:true', 'type:article', ...filters].join(','), per_page: '1', select: 'id' }),
+    'OpenAlex could not count these papers.');
+  return d.meta?.count ?? 0;
 }
 
 function plain(s) {
@@ -402,10 +467,10 @@ async function fetchMore() {
   const my = ++token;
   loading = true; lastError = null; render();
   try {
-    if (subjects.some(s => s.seed)) {
-      const did = await resolveSeeds();
+    if (!LS.get('defaultsChecked', false)) {
+      try { await checkDefaults(); } catch {}
       if (my !== token) return;
-      if (did) { renderSettings(); toast('Subjects linked to OpenAlex topics. Review them in Settings.'); }
+      renderChrome();
     }
     const q = buildQuery();
     if (problem(q)) { loading = false; render(); return; }
@@ -648,12 +713,18 @@ function download(name, text, type) {
 }
 
 /* ---------- Settings ---------- */
+function subjectSummary(s) {
+  const parts = (s.subfields || []).map(x => 'All of ' + x.name);
+  const tp = s.topics || [];
+  if (tp.length) parts.push(tp.length <= 3 ? tp.map(t => t.name).join('; ') : `${tp.length} topics`);
+  return (parts.join('; ') || 'Nothing included yet') + (s.econ ? '. Only papers also classified as economics' : '');
+}
 function renderSettings() {
   $('#keyInput').value = apiKey;
   $('#yFrom').value = settings.yearFrom; $('#yTo').value = settings.yearTo; $('#minC').value = settings.minCites;
   $('#subjList').innerHTML = subjects.length ? subjects.map(s => `
     <div class="catrow"><div><div>${esc(s.name)}</div>
-      <div class="q">${s.seed ? 'Topics are picked automatically on first use' : s.topics.length ? esc(s.topics.map(t => t.name).join('; ')) : 'No topics yet'}</div></div>
+      <div class="q">${esc(subjectSummary(s))}</div></div>
       <div class="rowbtns"><button class="edit" data-edit="s:${esc(s.id)}">Edit</button><button data-del="s:${esc(s.id)}">Delete</button></div></div>`).join('')
     : '<p class="hint">No subjects yet.</p>';
   $('#kwList').innerHTML = keywords.length ? keywords.map(k => `
@@ -702,21 +773,36 @@ $('#settingsSheet .close').addEventListener('click', () => {
 let edit = null;
 function openEditor(kind, id) {
   const item = id ? (kind === 's' ? subjects : keywords).find(x => x.id === id) : null;
-  edit = { kind, id: item ? item.id : null, topics: kind === 's' ? [...(item?.topics || [])] : [], results: [], status: '' };
+  edit = { kind, id: item ? item.id : null, results: [], status: '', browse: null,
+    topics: kind === 's' ? [...(item?.topics || [])] : [],
+    subfields: kind === 's' ? [...(item?.subfields || [])] : [],
+    econ: kind === 's' ? (item ? !!item.econ : true) : false };
   $('#editTitle').textContent = (item ? 'Edit ' : 'New ') + (kind === 's' ? 'subject' : 'keyword');
   const body = $('#editBody');
   if (kind === 's') {
     body.innerHTML = `
-      <h3>Name</h3><input id="edName" placeholder="Economic history">
-      <h3>Topics included</h3>
+      <h3>Name</h3><input id="edName" placeholder="Law & economics">
+      <h3>Included</h3>
       <div id="edChips" class="chips"></div>
-      <p class="hint">A paper belongs to this subject if OpenAlex tagged it with any of these topics. Tap a topic to remove it.</p>
-      <h3>Find OpenAlex topics</h3>
-      <div class="searchrow"><input id="edTopicQ" type="search" enterkeyhint="search" placeholder="e.g. economic history, labor markets"><button class="btn" id="edTopicGo">Search</button></div>
+      <p class="hint">A paper belongs to this subject if OpenAlex tagged it with any of these. Tap one to remove it.</p>
+      <label class="check" style="margin-top:14px"><input type="checkbox" id="edEcon"> Only papers also classified as economics</label>
+      <p class="hint">For crossover subjects: with all of Law included, this keeps papers tagged both as law and as economics.</p>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button class="btn ghost" id="edCount">Count matching papers</button><span class="hint" id="edCountOut" style="margin:0"></span></div>
+      <h3>Browse by subfield</h3>
+      <select id="edSub"><option value="">Loading subfields\u2026</option></select>
+      <div id="edBrowse"></div>
+      <h3>Search topics by word</h3>
+      <div class="searchrow"><input id="edTopicQ" type="search" enterkeyhint="search" placeholder="e.g. incarceration, colonial trade"><button class="btn" id="edTopicGo">Search</button></div>
       <div id="edResults"></div>`;
     $('#edName').value = item?.name || '';
+    $('#edEcon').checked = edit.econ;
+    $('#edEcon').onchange = e => { edit.econ = e.target.checked; clearCount(); };
+    $('#edCount').onclick = runCount;
     $('#edTopicGo').onclick = runTopicSearch;
     $('#edTopicQ').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); runTopicSearch(); } });
+    $('#edSub').onchange = e => openBrowse(e.target.value);
+    fillSubfieldSelect();
     renderChips(); renderResults();
   } else {
     body.innerHTML = `
@@ -732,24 +818,62 @@ function openEditor(kind, id) {
   }
   openSheet('editSheet');
 }
-function renderChips() {
-  const box = $('#edChips'); if (!box) return;
-  box.innerHTML = edit.topics.length
-    ? edit.topics.map(t => `<button class="chip" data-rm="${esc(t.id)}" aria-label="Remove ${esc(t.name)}">${esc(t.name)} <span aria-hidden="true">\u00d7</span></button>`).join('')
-    : '<p class="hint" style="margin:0">None yet. Search below and tick the topics that fit.</p>';
+async function fillSubfieldSelect() {
+  const selEl = $('#edSub');
+  try {
+    const cat = await loadCatalog();
+    const groups = {};
+    cat.forEach(x => (groups[x.field] = groups[x.field] || []).push(x));
+    selEl.innerHTML = '<option value="">Choose a subfield</option>' + Object.entries(groups).map(([f, list]) =>
+      `<optgroup label="${esc(f)}">${list.map(x => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('')}</optgroup>`).join('');
+  } catch (e) { selEl.innerHTML = `<option value="">${esc(e.message)}</option>`; }
 }
-function renderResults() {
-  const box = $('#edResults'); if (!box) return;
-  if (edit.status) { box.innerHTML = `<p class="hint">${esc(edit.status)}</p>`; return; }
-  box.innerHTML = edit.results.map(t => {
-    const on = edit.topics.some(x => x.id === t.id);
-    return `<button class="topicres" data-tid="${esc(t.id)}" aria-pressed="${on}">
+async function openBrowse(id) {
+  if (!id) { edit.browse = null; renderBrowse(); return; }
+  const name = (catalog || []).find(x => x.id === id)?.name || id;
+  edit.browse = { id, name, list: [], status: 'Loading topics\u2026' }; renderBrowse();
+  try {
+    const list = await topicsInSubfield(id);
+    if (!edit.browse || edit.browse.id !== id) return;
+    edit.browse.list = list; edit.browse.status = list.length ? '' : 'This subfield has no topics.';
+  } catch (e) { if (edit.browse) edit.browse.status = e.message; }
+  renderBrowse();
+}
+function topicRows(list) {
+  return list.map(t => {
+    const whole = edit.subfields.some(x => x.id === t.subId);
+    const on = whole || edit.topics.some(x => x.id === t.id);
+    return `<button class="topicres" data-tid="${esc(t.id)}" aria-pressed="${on}" ${whole ? 'disabled' : ''}>
       <span class="mark" aria-hidden="true">${on ? '\u2713' : ''}</span>
       <span><span class="n">${esc(t.name)}</span>
-      <span class="m">${esc(t.field)}${t.sub ? ', ' + esc(t.sub) : ''}. ${t.count.toLocaleString()} papers</span>
+      <span class="m">${esc(t.sub)}. ${t.count.toLocaleString()} papers${whole ? '. Included with its whole subfield' : ''}</span>
       ${t.desc ? `<span class="d">${esc(t.desc)}</span>` : ''}</span></button>`;
   }).join('');
 }
+function renderBrowse() {
+  const box = $('#edBrowse'); if (!box) return;
+  const b = edit.browse; if (!b) { box.innerHTML = ''; return; }
+  const whole = edit.subfields.some(x => x.id === b.id);
+  let html = `<div class="browsehead"><button class="btn ${whole ? '' : 'ghost'}" data-whole="${esc(b.id)}">${whole ? '\u2713 All of ' + esc(b.name) + ' included' : 'Include all of ' + esc(b.name)}</button></div>`;
+  if (b.status) html += `<p class="hint">${esc(b.status)}</p>`;
+  else if (whole) html += `<p class="hint">All ${b.list.length} topics are included. Tap the button again to pick topics one by one instead.</p>`;
+  else html += `<p class="hint">Or pick among its ${b.list.length} topics, largest first.</p>` + topicRows(b.list);
+  box.innerHTML = html;
+}
+function renderChips() {
+  const box = $('#edChips'); if (!box) return;
+  const chips = [
+    ...edit.subfields.map(x => `<button class="chip whole" data-rmsub="${esc(x.id)}" aria-label="Remove all of ${esc(x.name)}">All of ${esc(x.name)} <span aria-hidden="true">\u00d7</span></button>`),
+    ...edit.topics.map(t => `<button class="chip" data-rm="${esc(t.id)}" aria-label="Remove ${esc(t.name)}">${esc(t.name)} <span aria-hidden="true">\u00d7</span></button>`)
+  ];
+  box.innerHTML = chips.length ? chips.join('') : '<p class="hint" style="margin:0">Nothing yet. Browse a subfield or search below.</p>';
+}
+function renderResults() {
+  const box = $('#edResults'); if (!box) return;
+  box.innerHTML = edit.status ? `<p class="hint">${esc(edit.status)}</p>` : topicRows(edit.results);
+}
+function refreshEditor() { renderChips(); renderBrowse(); renderResults(); clearCount(); }
+function clearCount() { const o = $('#edCountOut'); if (o) o.textContent = ''; }
 async function runTopicSearch() {
   const term = $('#edTopicQ').value.trim(); if (!term) return;
   $('#edTopicQ').blur();
@@ -760,25 +884,60 @@ async function runTopicSearch() {
   } catch (e) { edit.status = e.message; }
   renderResults();
 }
+async function draftSubject() {
+  const d = { subfields: edit.subfields, topics: edit.topics, econ: edit.econ };
+  if (d.subfields.length && d.topics.length) d.expanded = await expandIds(d.subfields, d.topics);
+  return d;
+}
+async function runCount() {
+  const out = $('#edCountOut');
+  if (!edit.subfields.length && !edit.topics.length) { out.textContent = 'Include something first.'; return; }
+  out.textContent = 'Counting\u2026';
+  try {
+    const d = await draftSubject();
+    if (d.expanded && d.expanded.length > 100) { out.textContent = `Too many topics to combine (${d.expanded.length}, max 100).`; return; }
+    const n = await countWorks(subjectFilters(d));
+    out.textContent = `About ${n.toLocaleString()} articles, before your year and citation filters.`;
+  } catch (e) { out.textContent = e.message; }
+}
 $('#editBody').addEventListener('click', e => {
-  const rm = e.target.closest('[data-rm]');
-  if (rm) { edit.topics = edit.topics.filter(t => t.id !== rm.dataset.rm); renderChips(); renderResults(); return; }
-  const tr = e.target.closest('[data-tid]');
-  if (tr) {
-    const id = tr.dataset.tid;
-    if (edit.topics.some(t => t.id === id)) edit.topics = edit.topics.filter(t => t.id !== id);
-    else { const t = edit.results.find(x => x.id === id); if (t) edit.topics.push(slimTopic(t)); }
-    renderChips(); renderResults();
+  const t = e.target.closest('[data-rm],[data-rmsub],[data-whole],[data-tid]'); if (!t || t.disabled) return;
+  if (t.dataset.rm) edit.topics = edit.topics.filter(x => x.id !== t.dataset.rm);
+  else if (t.dataset.rmsub) edit.subfields = edit.subfields.filter(x => x.id !== t.dataset.rmsub);
+  else if (t.dataset.whole) {
+    const b = edit.browse, id = t.dataset.whole;
+    if (edit.subfields.some(x => x.id === id)) edit.subfields = edit.subfields.filter(x => x.id !== id);
+    else {
+      edit.subfields.push({ id, name: b ? b.name : id });
+      edit.topics = edit.topics.filter(x => x.subId !== id); // now covered by the whole subfield
+    }
+  } else {
+    const id = t.dataset.tid;
+    if (edit.topics.some(x => x.id === id)) edit.topics = edit.topics.filter(x => x.id !== id);
+    else {
+      const found = [...edit.results, ...(edit.browse ? edit.browse.list : [])].find(x => x.id === id);
+      if (found) edit.topics.push(slimTopic(found));
+    }
   }
+  refreshEditor();
 });
-$('#editSave').onclick = () => {
+$('#editSave').onclick = async () => {
+  const btn = $('#editSave');
   const name = $('#edName').value.trim();
   if (!name) { toast('Give it a name'); return; }
   const isNew = !edit.id, id = edit.id || newId(edit.kind === 's' ? 's-' : 'k-');
   const upsert = (arr, item) => { const i = arr.findIndex(x => x.id === item.id); if (i >= 0) arr[i] = item; else arr.push(item); };
   if (edit.kind === 's') {
-    if (!edit.topics.length) { toast('Tick at least one topic'); return; }
-    upsert(subjects, { id, name, topics: edit.topics }); saveSubjects();
+    if (!edit.subfields.length && !edit.topics.length) { toast('Include at least one subfield or topic'); return; }
+    let d;
+    btn.disabled = true;
+    try { d = await draftSubject(); } catch (e) { toast(e.message); btn.disabled = false; return; }
+    btn.disabled = false;
+    if (d.expanded && d.expanded.length > 100) {
+      toast(`That's ${d.expanded.length} topics. When mixing whole subfields with single topics, OpenAlex allows 100. Remove some.`);
+      return;
+    }
+    upsert(subjects, { id, name, ...d }); saveSubjects();
   } else {
     const q = $('#edQ').value.trim();
     if (!q) { toast('Add the words to look for'); return; }
