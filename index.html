@@ -120,6 +120,23 @@ input,select,textarea{font:1rem var(--sans);padding:9px 10px;border:1px solid #C
   background:var(--ink);color:var(--card);padding:9px 16px;border-radius:999px;font-size:.88rem;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+.cats{padding:6px 16px 2px}
+.rowlabel{flex:none;align-self:center;min-width:66px;font:italic .85rem var(--serif);color:rgba(253,252,247,.6)}
+.pill.add{border-style:dashed;color:rgba(253,252,247,.75)}
+#editSheet{z-index:12}
+.rowbtns{display:flex;gap:14px;flex:none}
+.catrow button.edit{color:var(--desk)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--desk);background:none;color:var(--desk);border-radius:999px;padding:6px 11px;font:.85rem var(--sans);text-align:left}
+.searchrow{display:flex;gap:8px}
+.searchrow .btn{flex:none}
+.topicres{display:flex;gap:12px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--blue);padding:11px 0;color:inherit;font:inherit}
+.topicres .mark{flex:none;width:22px;height:22px;margin-top:1px;border:1.5px solid var(--desk);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.8rem}
+.topicres[aria-pressed=true] .mark{background:var(--desk);color:var(--card)}
+.topicres .n{display:block;font-weight:600;font-size:.95rem}
+.topicres .m{display:block;font-size:.78rem;color:var(--muted);margin-top:2px}
+.topicres .d{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:.8rem;color:#3A4252;margin-top:4px}
+.sheet h3:first-child{margin-top:16px}
 </style>
 </head>
 <body>
@@ -128,10 +145,11 @@ input,select,textarea{font:1rem var(--sans);padding:9px 10px;border:1px solid #C
     <div class="brand">Stacks</div>
     <div class="hbtns">
       <button class="hbtn" id="savedBtn">Saved</button>
-      <button class="hbtn" id="settingsBtn" aria-label="Settings">Settings</button>
+      <button class="hbtn" id="settingsBtn">Settings</button>
     </div>
   </header>
-  <nav class="cats" id="cats" aria-label="Categories"></nav>
+  <nav class="cats" id="subjNav" aria-label="Subjects"></nav>
+  <nav class="cats" id="kwNav" aria-label="Keywords"></nav>
   <div class="mix" id="mix" aria-live="polite"></div>
   <div class="modes" id="modes" aria-label="Order">
     <button class="mode" data-mode="cited">Most cited</button>
@@ -161,9 +179,15 @@ input,select,textarea{font:1rem var(--sans);padding:9px 10px;border:1px solid #C
 <section class="sheet" id="settingsSheet" aria-label="Settings">
   <div class="sheet-head"><h2>Settings</h2><button class="close" data-close="settingsSheet">Done</button></div>
   <div class="sheet-body">
-    <h3>OpenAlex API key</h3>
-    <input id="keyInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your key">
-    <p class="hint">Free. Create an account at <a href="https://openalex.org" target="_blank" rel="noopener">openalex.org</a>, then copy the key from <a href="https://openalex.org/settings/api" target="_blank" rel="noopener">openalex.org/settings/api</a>. Without a key you get a small daily allowance, enough to try the app.</p>
+    <h3>Subjects</h3>
+    <p class="hint" style="margin:0 0 4px">Areas of research, as classified by OpenAlex. A paper belongs to a subject if OpenAlex tagged it with any of the subject's topics.</p>
+    <div id="subjList"></div>
+    <div style="margin-top:10px"><button class="btn ghost" data-add="s">New subject</button></div>
+
+    <h3>Keywords</h3>
+    <p class="hint" style="margin:0 0 4px">Words that must appear in a paper's title or abstract: a country, an institution, an object of study.</p>
+    <div id="kwList"></div>
+    <div style="margin-top:10px"><button class="btn ghost" data-add="k">New keyword</button></div>
 
     <h3>Filters</h3>
     <div class="grid3">
@@ -172,18 +196,12 @@ input,select,textarea{font:1rem var(--sans);padding:9px 10px;border:1px solid #C
       <div><label for="minC">Min. citations</label><input id="minC" type="number" inputmode="numeric" min="0"></div>
     </div>
 
-    <h3>Categories</h3>
-    <div id="catList"></div>
-    <div class="stack" style="margin-top:12px">
-      <div><label for="newName">Name</label><input id="newName" placeholder="Cultural markets"></div>
-      <div><label for="newQ">Search terms</label><input id="newQ" placeholder='"comic books" AND (industry OR market)'></div>
-      <label class="check"><input type="checkbox" id="newEcon" checked> Economics papers only</label>
-      <button class="btn" id="addCatBtn">Add category</button>
-      <p class="hint">Searches titles, abstracts and full text. Use quotes for phrases and AND, OR, NOT in capitals.</p>
-    </div>
+    <h3>OpenAlex API key</h3>
+    <input id="keyInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your key">
+    <p class="hint">Free. Create an account at <a href="https://openalex.org" target="_blank" rel="noopener">openalex.org</a>, then copy the key from <a href="https://openalex.org/settings/api" target="_blank" rel="noopener">openalex.org/settings/api</a>.</p>
 
     <h3>Your data</h3>
-    <p class="hint" style="margin:0 0 10px">Everything is stored in this browser only. Export a backup before clearing browser data or switching phones.</p>
+    <p class="hint" style="margin:0 0 10px">Everything is stored in this app only. Export a backup before clearing browser data or switching phones.</p>
     <div class="btnrow">
       <button class="btn ghost" id="exportBtn">Export backup</button>
       <button class="btn ghost" id="importBtn">Import backup</button>
@@ -191,6 +209,12 @@ input,select,textarea{font:1rem var(--sans);padding:9px 10px;border:1px solid #C
     </div>
     <input type="file" id="importFile" accept="application/json,.json" hidden>
   </div>
+</section>
+
+<section class="sheet" id="editSheet" aria-label="Edit">
+  <div class="sheet-head"><h2 id="editTitle">Edit</h2><button class="close" data-close="editSheet">Cancel</button></div>
+  <div class="sheet-body" id="editBody"></div>
+  <div class="sheet-foot"><button class="btn" id="editSave">Save</button></div>
 </section>
 
 <div class="toast" id="toast" role="status"></div>
@@ -204,84 +228,146 @@ const LS = {
   set(k, v) { try { localStorage.setItem('stacks.' + k, JSON.stringify(v)); } catch { toast('Could not save to browser storage'); } }
 };
 
-// Field ids in OpenAlex's topic hierarchy: 20 = Economics, Econometrics and Finance; 33 = Social Sciences; 12 = Arts and Humanities
-const DEFAULT_CATS = [
-  { id: 'hist', name: 'Economic history', field: '20|12',
-    q: '"economic history" OR cliometrics OR "industrial revolution" OR "historical persistence" OR "long-run development"' },
-  { id: 'polecon', name: 'Political economy', field: '20|33',
-    q: '"political economy" OR elections OR voting OR democratization OR lobbying OR "state capacity" OR "political institutions"' },
-  { id: 'lawecon', name: 'Law & economics', field: '20|33',
-    q: '"law and economics" OR "legal origins" OR litigation OR "property rights" OR "contract enforcement" OR courts' },
-  { id: 'dev', name: 'Development', field: '20',
-    q: '"development economics" OR "developing countries" OR poverty OR microfinance OR "randomized controlled trial" OR "informal sector"' },
-  { id: 'france', name: 'France', field: '20|33|12', q: 'France OR French OR Paris' }
+/* OpenAlex field ids: 20 = Economics, Econometrics and Finance; 33 = Social Sciences; 12 = Arts and Humanities */
+const SCOPES = {
+  econ: { label: 'Economics only', field: '20' },
+  social: { label: 'Economics, social sciences and humanities', field: '20|33|12' },
+  any: { label: 'All fields', field: '' }
+};
+const SEED_FIELDS = ['20', '33', '12'];
+/* Default subjects start with a search term; on first use it is swapped for the best-matching OpenAlex topics. */
+const DEFAULT_SUBJECTS = [
+  { id: 's-hist', name: 'Economic history', seed: 'economic history' },
+  { id: 's-polecon', name: 'Political economy', seed: 'political economy' },
+  { id: 's-lawecon', name: 'Law & economics', seed: 'law and economics' },
+  { id: 's-dev', name: 'Development', seed: 'economic development' }
+];
+const DEFAULT_KEYWORDS = [
+  { id: 'k-france', name: 'France', q: 'France OR French OR "Ancien Regime"', scope: 'social' }
 ];
 
 let apiKey = LS.get('key', '');
 let settings = Object.assign({ yearFrom: 1950, yearTo: YEAR, minCites: 10 }, LS.get('settings', {}));
-let customCats = LS.get('cats', []);
+let subjects = LS.get('subjects', null);
+if (!Array.isArray(subjects)) { subjects = DEFAULT_SUBJECTS.map(s => ({ ...s, topics: [] })); LS.set('subjects', subjects); }
+let keywords = LS.get('keywords', null);
+if (!Array.isArray(keywords)) {
+  // Carry over categories created in earlier versions as keywords
+  const legacy = (LS.get('cats', []) || []).map(c => ({ id: 'k-' + c.id, name: c.name, q: c.q, scope: c.field === '20' ? 'econ' : c.field ? 'social' : 'any' }));
+  keywords = [...DEFAULT_KEYWORDS, ...legacy]; LS.set('keywords', keywords);
+}
+let sel = LS.get('sel', null);
 let saved = LS.get('saved', []);
 let seen = new Set(LS.get('seen', []));
 let pages = LS.get('pages', {});
+let mode = LS.get('lastMode', 'cited');
 const counts = {};
-let current = { cats: LS.get('lastCats', null) || [LS.get('lastCat', 'hist')], mode: LS.get('lastMode', 'cited') };
-const noField = new Set();
 let queue = [], loading = false, lastError = null, exhausted = false, token = 0;
 const history = [];
 
-const cats = () => [...DEFAULT_CATS, ...customCats];
-const selected = () => { const s = cats().filter(c => current.cats.includes(c.id)); return s.length ? s : [cats()[0]]; };
-// Selected categories are combined with AND; their field filters are intersected.
-function combined() {
-  const s = selected();
-  const q = s.length === 1 ? s[0].q : s.map(c => `(${c.q})`).join(' AND ');
-  const fs = s.filter(c => c.field).map(c => c.field.split('|'));
-  let field = '';
-  if (fs.length) field = fs.slice(1).reduce((acc, f) => acc.filter(x => f.includes(x)), fs[0]).join('|');
-  return { key: s.map(c => c.id).sort().join('+'), name: s.map(c => c.name).join(' + '), q, field };
-}
-const qKey = () => [combined().key, current.mode, settings.yearFrom, settings.yearTo, settings.minCites].join('|');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const persistSeen = () => LS.set('seen', [...seen].slice(-20000));
+const saveSubjects = () => LS.set('subjects', subjects);
+const saveKeywords = () => LS.set('keywords', keywords);
+const allItems = () => [...subjects, ...keywords];
+const newId = p => p + Date.now().toString(36);
+function joinAnd(a) { return a.length <= 1 ? (a[0] || '') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
+function cleanSel() {
+  sel = (Array.isArray(sel) ? sel : []).filter(id => allItems().some(x => x.id === id));
+  if (!sel.length && allItems().length) sel = [allItems()[0].id];
+  LS.set('sel', sel);
+}
+cleanSel();
 
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 1800);
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ---------- Query ---------- */
+// Everything selected combines with AND. Subjects: tagged with any of the subject's topics.
+// Keywords: words in title or abstract. A keyword's "look in" scope only applies when no subject is selected.
+function buildQuery() {
+  const subs = subjects.filter(s => sel.includes(s.id));
+  const kws = keywords.filter(k => sel.includes(k.id));
+  const filters = [];
+  for (const s of subs) if (s.topics.length) filters.push('topics.id:' + s.topics.slice(0, 100).map(t => t.id).join('|'));
+  if (kws.length) {
+    const q = kws.length === 1 ? kws[0].q : kws.map(k => `(${k.q})`).join(' AND ');
+    filters.push('title_and_abstract.search:' + q.replace(/,/g, ' '));
+  }
+  if (!subs.length) {
+    const fs = kws.map(k => (SCOPES[k.scope] || SCOPES.social).field).filter(Boolean).map(f => f.split('|'));
+    if (fs.length) {
+      const inter = fs.slice(1).reduce((acc, f) => acc.filter(x => f.includes(x)), fs[0]);
+      if (inter.length) filters.push('primary_topic.field.id:' + inter.join('|'));
+    }
+  }
+  const key = ['v3', ...subs.map(s => s.id + ':' + s.topics.map(t => t.id).join('.')), ...kws.map(k => k.id + ':' + k.q + ':' + k.scope)].join('~');
+  return { subs, kws, filters, key, name: [...subs, ...kws].map(x => x.name).join(' + '),
+    emptySubs: subs.filter(s => !s.topics.length && !s.seed) };
+}
+const qKey = q => [q.key, mode, settings.yearFrom, settings.yearTo, settings.minCites].join('|');
+function problem(q) {
+  if (!q.subs.length && !q.kws.length) return allItems().length ? 'Pick a subject or keyword above.' : 'Add a subject or keyword in Settings to start.';
+  if (q.emptySubs.length) return `${joinAnd(q.emptySubs.map(s => s.name))} ${q.emptySubs.length > 1 ? 'have' : 'has'} no OpenAlex topics yet. Add some in Settings.`;
+  return null;
+}
+function describe() {
+  const subs = subjects.filter(s => sel.includes(s.id)), kws = keywords.filter(k => sel.includes(k.id));
+  if (subs.length + kws.length <= 1) return LS.get('mixedOnce', false) ? '' : 'Tap more subjects or keywords to combine them';
+  const a = joinAnd(subs.map(s => s.name)), b = joinAnd(kws.map(k => k.name));
+  if (subs.length && kws.length) return `${a} papers that mention ${b}`;
+  if (subs.length) return `Papers in both ${a}`;
+  return `Papers that mention ${b}`;
 }
 
 /* ---------- OpenAlex ---------- */
-function buildUrl(cat, page, useField) {
-  const f = ['has_abstract:true', 'type:article'];
-  const from = current.mode === 'recent' ? Math.max(settings.yearFrom, YEAR - 5) : settings.yearFrom;
-  f.push(`publication_year:${from}-${settings.yearTo}`);
-  if (settings.minCites > 0) f.push(`cited_by_count:>${settings.minCites - 1}`);
-  if (useField && cat.field) f.push(`primary_topic.field.id:${cat.field}`);
-  const p = new URLSearchParams();
-  if (cat.q) p.set('search', cat.q);
-  p.set('filter', f.join(','));
-  p.set('sort', 'cited_by_count:desc');
-  p.set('per_page', '25');
-  p.set('page', String(page));
-  p.set('select', 'id,doi,title,publication_year,authorships,abstract_inverted_index,primary_location,best_oa_location,cited_by_count,primary_topic');
-  if (apiKey) p.set('api_key', apiKey);
-  return 'https://api.openalex.org/works?' + p.toString();
-}
-
-async function getJSON(cat, page) {
+async function apiGet(url, badRequestMsg) {
   let res;
-  try {
-    const nf = noField.has(cat.key);
-    res = await fetch(buildUrl(cat, page, !nf));
-    if (res.status === 400 && cat.field && !nf) { noField.add(cat.key); res = await fetch(buildUrl(cat, page, false)); }
-  } catch { throw new Error('Could not reach OpenAlex. Check your connection.'); }
+  try { res = await fetch(url); } catch { throw new Error('Could not reach OpenAlex. Check your connection.'); }
   if (!res.ok) {
     if ([401, 403].includes(res.status)) throw new Error('OpenAlex rejected the API key. Check it in Settings.');
     if ([402, 409, 429].includes(res.status)) throw new Error(apiKey
       ? 'Today\u2019s OpenAlex allowance is used up. It resets at midnight UTC.'
       : 'The no-key allowance is used up. Add a free OpenAlex key in Settings.');
+    if (res.status === 400) throw new Error(badRequestMsg);
     throw new Error(`OpenAlex returned an error (${res.status}).`);
   }
   return res.json();
+}
+function worksUrl(q, page) {
+  const to = settings.yearTo;
+  const from = Math.min(to, mode === 'recent' ? Math.max(settings.yearFrom, YEAR - 5) : settings.yearFrom);
+  const f = ['has_abstract:true', 'type:article', `publication_year:${from}-${to}`];
+  if (settings.minCites > 0) f.push(`cited_by_count:>${settings.minCites - 1}`);
+  f.push(...q.filters);
+  const p = new URLSearchParams({
+    filter: f.join(','), sort: 'cited_by_count:desc', per_page: '25', page: String(page),
+    select: 'id,doi,title,publication_year,authorships,abstract_inverted_index,primary_location,best_oa_location,cited_by_count,primary_topic'
+  });
+  if (apiKey) p.set('api_key', apiKey);
+  return 'https://api.openalex.org/works?' + p;
+}
+async function searchTopics(term) {
+  const p = new URLSearchParams({ search: term, per_page: '25', select: 'id,display_name,description,subfield,field,works_count' });
+  if (apiKey) p.set('api_key', apiKey);
+  const d = await apiGet('https://api.openalex.org/topics?' + p, 'OpenAlex could not run that topic search.');
+  return (d.results || []).map(t => ({
+    id: t.id.split('/').pop(), name: t.display_name, sub: t.subfield?.display_name || '',
+    field: t.field?.display_name || '', fieldId: String(t.field?.id || '').split('/').pop(),
+    count: t.works_count || 0, desc: t.description || ''
+  }));
+}
+const slimTopic = t => ({ id: t.id, name: t.name, sub: t.sub, count: t.count });
+async function resolveSeeds() {
+  let did = false;
+  for (const s of subjects.filter(x => x.seed)) {
+    const ts = await searchTopics(s.seed);
+    s.topics = ts.filter(t => SEED_FIELDS.includes(t.fieldId)).slice(0, 4).map(slimTopic);
+    delete s.seed; saveSubjects(); did = true;
+  }
+  return did;
 }
 
 function plain(s) {
@@ -315,27 +401,34 @@ async function fetchMore() {
   if (loading || exhausted) return;
   const my = ++token;
   loading = true; lastError = null; render();
-  const cat = combined(), key = qKey();
-  const savedIds = new Set(saved.map(s => s.id));
   try {
+    if (subjects.some(s => s.seed)) {
+      const did = await resolveSeeds();
+      if (my !== token) return;
+      if (did) { renderSettings(); toast('Subjects linked to OpenAlex topics. Review them in Settings.'); }
+    }
+    const q = buildQuery();
+    if (problem(q)) { loading = false; render(); return; }
+    const key = qKey(q);
+    const savedIds = new Set(saved.map(s => s.id));
     let added = 0, tries = 0;
     while (added < 5 && tries < 5 && !exhausted) {
       tries++;
       let page;
-      if (current.mode === 'shuffle') {
+      if (mode === 'shuffle') {
         const max = counts[key] ? Math.max(1, Math.min(400, Math.ceil(counts[key] / 25))) : 1;
         page = 1 + Math.floor(Math.random() * max);
       } else page = pages[key] || 1;
-      const data = await getJSON(cat, page);
+      const data = await apiGet(worksUrl(q, page), 'OpenAlex could not read a keyword\u2019s search terms. Check its quotes and parentheses in Settings.');
       if (my !== token) return;
       counts[key] = data.meta?.count ?? 0;
       const results = data.results || [];
       for (const w of results) {
         const p = norm(w);
-        if (p.abstract.length < 80 || seen.has(p.id) || savedIds.has(p.id) || queue.some(q => q.id === p.id)) continue;
+        if (p.abstract.length < 80 || seen.has(p.id) || savedIds.has(p.id) || queue.some(x => x.id === p.id)) continue;
         queue.push(p); added++;
       }
-      if (current.mode === 'shuffle') {
+      if (mode === 'shuffle') {
         if (!counts[key] || (counts[key] <= 25 && !added)) exhausted = true;
       } else {
         pages[key] = page + 1; LS.set('pages', pages);
@@ -374,20 +467,19 @@ function cardEl(p, back) {
   return el;
 }
 
+const pillHtml = x => `<button class="pill" data-cat="${esc(x.id)}" aria-pressed="${sel.includes(x.id)}">${esc(x.name)}</button>`;
 function renderChrome() {
-  const nav = $('#cats');
-  nav.innerHTML = cats().map(c => `<button class="pill" data-cat="${esc(c.id)}" aria-pressed="${current.cats.includes(c.id)}">${esc(c.name)}</button>`).join('');
-  const s = selected();
-  $('#mix').textContent = s.length > 1
-    ? 'Only papers matching ' + s.map(c => c.name).join(' and ')
-    : (LS.get('mixedOnce', false) ? '' : 'Tap another category to combine them');
-  document.querySelectorAll('.mode').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === current.mode));
+  $('#subjNav').innerHTML = `<span class="rowlabel">Subjects</span>` + subjects.map(pillHtml).join('') + `<button class="pill add" data-add="s">New</button>`;
+  $('#kwNav').innerHTML = `<span class="rowlabel">Keywords</span>` + keywords.map(pillHtml).join('') + `<button class="pill add" data-add="k">New</button>`;
+  $('#mix').textContent = describe();
+  document.querySelectorAll('.mode').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
 }
 
 function render() {
   $('#savedBtn').textContent = `Saved ${saved.length}`;
   const stage = $('#stage');
   const top = stage.querySelector('.card:not(.back):not(.leaving)');
+  const prob = problem(buildQuery());
   if (queue.length) {
     if (!top || top.dataset.id !== queue[0].id) {
       stage.innerHTML = '';
@@ -402,16 +494,17 @@ function render() {
   } else {
     stage.innerHTML = '';
     const n = document.createElement('div'); n.className = 'notice';
-    if (lastError) { n.innerHTML = `<div>${esc(lastError)}</div><button class="hbtn" id="retryBtn">Try again</button>`; }
-    else if (loading) n.textContent = 'Pulling cards from the drawer\u2026';
-    else if (exhausted) n.textContent = 'You\u2019ve been through every card in this drawer. Widen the years or lower the citation minimum in Settings, or pick another category.';
+    if (prob && !loading) n.innerHTML = `<div>${esc(prob)}</div><button class="hbtn" id="noticeBtn">Open Settings</button>`;
+    else if (lastError) n.innerHTML = `<div>${esc(lastError)}</div><button class="hbtn" id="retryBtn">Try again</button>`;
+    else if (exhausted) n.textContent = 'You\u2019ve been through every card in this drawer. Widen the years or lower the citation minimum in Settings, or change your selection.';
     else n.textContent = 'Pulling cards from the drawer\u2026';
     stage.append(n);
     const r = $('#retryBtn'); if (r) r.onclick = () => { lastError = null; fetchMore(); };
+    const sb = $('#noticeBtn'); if (sb) sb.onclick = openSettings;
   }
   $('#skipBtn').disabled = $('#saveBtn').disabled = !queue.length;
   $('#undoBtn').disabled = !history.length;
-  if (queue.length < 4 && !loading && !lastError && !exhausted) fetchMore();
+  if (queue.length < 4 && !loading && !lastError && !exhausted && !prob) fetchMore();
 }
 
 /* ---------- Decisions ---------- */
@@ -419,7 +512,7 @@ function decide(action, el) {
   const p = queue.shift(); if (!p) return;
   seen.add(p.id); persistSeen();
   if (action === 'save') {
-    saved.unshift({ ...p, cat: combined().name, savedAt: Date.now() });
+    saved.unshift({ ...p, cat: buildQuery().name, savedAt: Date.now() });
     LS.set('saved', saved);
   }
   history.push({ p, action }); if (history.length > 30) history.shift();
@@ -482,30 +575,29 @@ function bindDrag(el) {
   });
 }
 
-function switchTo(changes) {
-  Object.assign(current, changes);
-  LS.set('lastCats', current.cats); LS.set('lastMode', current.mode);
-  if (current.cats.length > 1) LS.set('mixedOnce', true);
-  token++; queue = []; loading = false; lastError = null; exhausted = false; history.length = 0;
-  renderChrome(); render();
+function resetFeed() { token++; queue = []; loading = false; lastError = null; exhausted = false; history.length = 0; }
+function switchTo(changes = {}) {
+  if (changes.sel) { sel = changes.sel; if (sel.length > 1) LS.set('mixedOnce', true); }
+  if (changes.mode) mode = changes.mode;
+  LS.set('sel', sel); LS.set('lastMode', mode);
+  resetFeed(); renderChrome(); render();
 }
-function refilter() { token++; queue = []; loading = false; lastError = null; exhausted = false; history.length = 0; render(); }
 
 /* ---------- Sheets ---------- */
 function openSheet(id) { $('#' + id).classList.add('open'); }
 function closeSheet(id) { $('#' + id).classList.remove('open'); }
-document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => closeSheet(b.dataset.close));
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeSheet(b.dataset.close)));
 const anyOpen = () => !!document.querySelector('.sheet.open');
 
 function renderSaved() {
-  const sel = $('#savedCat'), prev = sel.value;
-  const names = [...new Set(saved.map(s => s.cat))];
-  sel.innerHTML = `<option value="">All categories</option>` + names.map(n => `<option>${esc(n)}</option>`).join('');
-  sel.value = names.includes(prev) ? prev : '';
-  const q = $('#savedSearch').value.trim().toLowerCase(), cf = sel.value;
-  const list = saved.filter(s => (!cf || s.cat === cf) && (!q || (s.title + ' ' + s.authors.join(' ')).toLowerCase().includes(q)));
+  const s = $('#savedCat'), prev = s.value;
+  const names = [...new Set(saved.map(x => x.cat))];
+  s.innerHTML = `<option value="">All</option>` + names.map(n => `<option>${esc(n)}</option>`).join('');
+  s.value = names.includes(prev) ? prev : '';
+  const q = $('#savedSearch').value.trim().toLowerCase(), cf = s.value;
+  const list = saved.filter(x => (!cf || x.cat === cf) && (!q || (x.title + ' ' + x.authors.join(' ')).toLowerCase().includes(q)));
   $('#savedList').innerHTML = list.length
-    ? list.map(s => `<button class="row" data-id="${esc(s.id)}"><div class="t">${esc(s.title)}</div><div class="a">${esc(fmtAuthors(s.authors, 2))}, ${esc(s.year)}. ${esc(s.cat)}</div></button>`).join('')
+    ? list.map(x => `<button class="row" data-id="${esc(x.id)}"><div class="t">${esc(x.title)}</div><div class="a">${esc(fmtAuthors(x.authors, 2))}, ${esc(x.year)}. ${esc(x.cat)}</div></button>`).join('')
     : `<div class="empty">${saved.length ? 'No saved papers match.' : 'Swipe right on a card, or tap Save, to keep a paper here.'}</div>`;
   $('#bibBtn').disabled = $('#copyBibBtn').disabled = !saved.length;
 }
@@ -559,18 +651,38 @@ function download(name, text, type) {
 function renderSettings() {
   $('#keyInput').value = apiKey;
   $('#yFrom').value = settings.yearFrom; $('#yTo').value = settings.yearTo; $('#minC').value = settings.minCites;
-  $('#catList').innerHTML = cats().map(c => `
-    <div class="catrow"><div><div>${esc(c.name)}</div><div class="q">${esc(c.q)}</div></div>
-    ${customCats.some(x => x.id === c.id) ? `<button data-del="${esc(c.id)}">Delete</button>` : ''}</div>`).join('');
-  $('#catList').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
-    customCats = customCats.filter(c => c.id !== b.dataset.del); LS.set('cats', customCats);
-    if (current.cats.includes(b.dataset.del)) {
-      const rest = current.cats.filter(x => x !== b.dataset.del);
-      switchTo({ cats: rest.length ? rest : ['hist'] });
-    } else renderChrome();
-    renderSettings();
-  });
+  $('#subjList').innerHTML = subjects.length ? subjects.map(s => `
+    <div class="catrow"><div><div>${esc(s.name)}</div>
+      <div class="q">${s.seed ? 'Topics are picked automatically on first use' : s.topics.length ? esc(s.topics.map(t => t.name).join('; ')) : 'No topics yet'}</div></div>
+      <div class="rowbtns"><button class="edit" data-edit="s:${esc(s.id)}">Edit</button><button data-del="s:${esc(s.id)}">Delete</button></div></div>`).join('')
+    : '<p class="hint">No subjects yet.</p>';
+  $('#kwList').innerHTML = keywords.length ? keywords.map(k => `
+    <div class="catrow"><div><div>${esc(k.name)}</div>
+      <div class="q">${esc(k.q)}<br>${esc((SCOPES[k.scope] || SCOPES.social).label)}</div></div>
+      <div class="rowbtns"><button class="edit" data-edit="k:${esc(k.id)}">Edit</button><button data-del="k:${esc(k.id)}">Delete</button></div></div>`).join('')
+    : '<p class="hint">No keywords yet.</p>';
 }
+function openSettings() { renderSettings(); openSheet('settingsSheet'); }
+function onListClick(e) {
+  const b = e.target.closest('[data-edit],[data-del]'); if (!b) return;
+  const [kind, id] = (b.dataset.edit || b.dataset.del).split(/:(.*)/s);
+  if (b.dataset.edit) openEditor(kind, id); else removeItem(kind, id);
+}
+$('#subjList').addEventListener('click', onListClick);
+$('#kwList').addEventListener('click', onListClick);
+document.querySelectorAll('#settingsSheet [data-add]').forEach(b => b.onclick = () => openEditor(b.dataset.add, null));
+
+function removeItem(kind, id) {
+  const it = (kind === 's' ? subjects : keywords).find(x => x.id === id);
+  if (!it || !confirm(`Delete ${it.name}? Saved papers stay saved.`)) return;
+  if (kind === 's') { subjects = subjects.filter(x => x.id !== id); saveSubjects(); }
+  else { keywords = keywords.filter(x => x.id !== id); saveKeywords(); }
+  const wasSel = sel.includes(id);
+  sel = sel.filter(x => x !== id); cleanSel();
+  renderSettings();
+  if (wasSel) switchTo({}); else renderChrome();
+}
+
 let settingsDirty = false;
 function readFilters() {
   const n = (v, d) => { const x = parseInt(v, 10); return Number.isFinite(x) ? x : d; };
@@ -583,18 +695,103 @@ function readFilters() {
 $('#keyInput').addEventListener('change', () => { apiKey = $('#keyInput').value.trim(); LS.set('key', apiKey); settingsDirty = true; });
 $('#settingsSheet .close').addEventListener('click', () => {
   readFilters();
-  if (settingsDirty) { settingsDirty = false; refilter(); }
+  if (settingsDirty) { settingsDirty = false; resetFeed(); render(); }
 });
-$('#addCatBtn').onclick = () => {
-  const name = $('#newName').value.trim(), q = $('#newQ').value.trim();
-  if (!name || !q) { toast('Give the category a name and search terms'); return; }
-  const c = { id: 'c' + Date.now().toString(36), name, q, field: $('#newEcon').checked ? '20' : '' };
-  customCats.push(c); LS.set('cats', customCats);
-  $('#newName').value = ''; $('#newQ').value = '';
-  renderSettings(); renderChrome(); toast('Category added');
+
+/* ---------- Editor for subjects and keywords ---------- */
+let edit = null;
+function openEditor(kind, id) {
+  const item = id ? (kind === 's' ? subjects : keywords).find(x => x.id === id) : null;
+  edit = { kind, id: item ? item.id : null, topics: kind === 's' ? [...(item?.topics || [])] : [], results: [], status: '' };
+  $('#editTitle').textContent = (item ? 'Edit ' : 'New ') + (kind === 's' ? 'subject' : 'keyword');
+  const body = $('#editBody');
+  if (kind === 's') {
+    body.innerHTML = `
+      <h3>Name</h3><input id="edName" placeholder="Economic history">
+      <h3>Topics included</h3>
+      <div id="edChips" class="chips"></div>
+      <p class="hint">A paper belongs to this subject if OpenAlex tagged it with any of these topics. Tap a topic to remove it.</p>
+      <h3>Find OpenAlex topics</h3>
+      <div class="searchrow"><input id="edTopicQ" type="search" enterkeyhint="search" placeholder="e.g. economic history, labor markets"><button class="btn" id="edTopicGo">Search</button></div>
+      <div id="edResults"></div>`;
+    $('#edName').value = item?.name || '';
+    $('#edTopicGo').onclick = runTopicSearch;
+    $('#edTopicQ').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); runTopicSearch(); } });
+    renderChips(); renderResults();
+  } else {
+    body.innerHTML = `
+      <h3>Name</h3><input id="edName" placeholder="Prisons">
+      <h3>Words to look for</h3><input id="edQ" autocapitalize="off" placeholder='prison OR incarceration OR "penal system"'>
+      <p class="hint">Matched against titles and abstracts. Put phrases in quotes and write AND, OR, NOT in capitals. Plurals and word endings are matched automatically.</p>
+      <h3>Look in</h3>
+      <select id="edScope">${Object.entries(SCOPES).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join('')}</select>
+      <p class="hint">Used when no subject is selected. A selected subject already sets the area.</p>`;
+    $('#edName').value = item?.name || '';
+    $('#edQ').value = item?.q || '';
+    $('#edScope').value = item?.scope || 'social';
+  }
+  openSheet('editSheet');
+}
+function renderChips() {
+  const box = $('#edChips'); if (!box) return;
+  box.innerHTML = edit.topics.length
+    ? edit.topics.map(t => `<button class="chip" data-rm="${esc(t.id)}" aria-label="Remove ${esc(t.name)}">${esc(t.name)} <span aria-hidden="true">\u00d7</span></button>`).join('')
+    : '<p class="hint" style="margin:0">None yet. Search below and tick the topics that fit.</p>';
+}
+function renderResults() {
+  const box = $('#edResults'); if (!box) return;
+  if (edit.status) { box.innerHTML = `<p class="hint">${esc(edit.status)}</p>`; return; }
+  box.innerHTML = edit.results.map(t => {
+    const on = edit.topics.some(x => x.id === t.id);
+    return `<button class="topicres" data-tid="${esc(t.id)}" aria-pressed="${on}">
+      <span class="mark" aria-hidden="true">${on ? '\u2713' : ''}</span>
+      <span><span class="n">${esc(t.name)}</span>
+      <span class="m">${esc(t.field)}${t.sub ? ', ' + esc(t.sub) : ''}. ${t.count.toLocaleString()} papers</span>
+      ${t.desc ? `<span class="d">${esc(t.desc)}</span>` : ''}</span></button>`;
+  }).join('');
+}
+async function runTopicSearch() {
+  const term = $('#edTopicQ').value.trim(); if (!term) return;
+  $('#edTopicQ').blur();
+  edit.status = 'Searching\u2026'; renderResults();
+  try {
+    edit.results = await searchTopics(term);
+    edit.status = edit.results.length ? '' : 'No topics found. Try a broader term.';
+  } catch (e) { edit.status = e.message; }
+  renderResults();
+}
+$('#editBody').addEventListener('click', e => {
+  const rm = e.target.closest('[data-rm]');
+  if (rm) { edit.topics = edit.topics.filter(t => t.id !== rm.dataset.rm); renderChips(); renderResults(); return; }
+  const tr = e.target.closest('[data-tid]');
+  if (tr) {
+    const id = tr.dataset.tid;
+    if (edit.topics.some(t => t.id === id)) edit.topics = edit.topics.filter(t => t.id !== id);
+    else { const t = edit.results.find(x => x.id === id); if (t) edit.topics.push(slimTopic(t)); }
+    renderChips(); renderResults();
+  }
+});
+$('#editSave').onclick = () => {
+  const name = $('#edName').value.trim();
+  if (!name) { toast('Give it a name'); return; }
+  const isNew = !edit.id, id = edit.id || newId(edit.kind === 's' ? 's-' : 'k-');
+  const upsert = (arr, item) => { const i = arr.findIndex(x => x.id === item.id); if (i >= 0) arr[i] = item; else arr.push(item); };
+  if (edit.kind === 's') {
+    if (!edit.topics.length) { toast('Tick at least one topic'); return; }
+    upsert(subjects, { id, name, topics: edit.topics }); saveSubjects();
+  } else {
+    const q = $('#edQ').value.trim();
+    if (!q) { toast('Add the words to look for'); return; }
+    upsert(keywords, { id, name, q, scope: $('#edScope').value }); saveKeywords();
+  }
+  closeSheet('editSheet'); renderSettings();
+  if (sel.includes(id)) switchTo({}); else renderChrome();
+  toast(isNew ? 'Added. Tap it on the main screen to use it.' : 'Saved');
 };
+
+/* ---------- Backup ---------- */
 $('#exportBtn').onclick = () => download(`stacks-backup-${new Date().toISOString().slice(0, 10)}.json`,
-  JSON.stringify({ version: 1, saved, seen: [...seen], cats: customCats, settings }, null, 2), 'application/json');
+  JSON.stringify({ version: 3, saved, seen: [...seen], subjects, keywords, sel, settings }, null, 2), 'application/json');
 $('#importBtn').onclick = () => $('#importFile').click();
 $('#importFile').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
@@ -604,33 +801,37 @@ $('#importFile').onchange = async e => {
     (d.saved || []).forEach(s => { if (s && s.id && !have.has(s.id)) { saved.push(s); have.add(s.id); } });
     saved.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
     (d.seen || []).forEach(id => seen.add(id));
-    const haveCat = new Set(customCats.map(c => c.id));
-    (d.cats || []).forEach(c => { if (c && c.id && !haveCat.has(c.id)) customCats.push(c); });
-    LS.set('saved', saved); persistSeen(); LS.set('cats', customCats);
-    renderSettings(); renderChrome(); refilter(); toast('Backup imported');
+    const merge = (arr, items) => items.forEach(x => { if (x && x.id && !arr.some(y => y.id === x.id)) arr.push(x); });
+    merge(subjects, d.subjects || []);
+    merge(keywords, d.keywords || (d.cats || []).map(c => ({ id: 'k-' + c.id, name: c.name, q: c.q, scope: c.field === '20' ? 'econ' : c.field ? 'social' : 'any' })));
+    LS.set('saved', saved); persistSeen(); saveSubjects(); saveKeywords();
+    renderSettings(); switchTo({}); toast('Backup imported');
   } catch { toast('That file is not a Stacks backup'); }
   e.target.value = '';
 };
 $('#resetSeenBtn').onclick = () => {
-  if (!confirm('Skipped papers will appear in your stacks again. Saved papers stay saved.')) return;
+  if (!confirm('Skipped papers will appear again. Saved papers stay saved.')) return;
   seen = new Set(saved.map(s => s.id)); persistSeen(); pages = {}; LS.set('pages', pages);
-  refilter(); toast('Skipped papers restored');
+  resetFeed(); render(); toast('Skipped papers restored');
 };
 
 /* ---------- Wiring ---------- */
-$('#cats').addEventListener('click', e => {
+function onNav(e) {
   const b = e.target.closest('.pill'); if (!b) return;
+  if (b.dataset.add) { openEditor(b.dataset.add, null); return; }
   const id = b.dataset.cat;
-  const next = current.cats.includes(id) ? current.cats.filter(x => x !== id) : [...current.cats, id];
-  if (!next.length) { toast('Keep at least one category selected'); return; }
-  switchTo({ cats: next });
-});
-$('#modes').addEventListener('click', e => { const b = e.target.closest('.mode'); if (b && b.dataset.mode !== current.mode) switchTo({ mode: b.dataset.mode }); });
+  const next = sel.includes(id) ? sel.filter(x => x !== id) : [...sel, id];
+  if (!next.length) { toast('Keep at least one selected'); return; }
+  switchTo({ sel: next });
+}
+$('#subjNav').addEventListener('click', onNav);
+$('#kwNav').addEventListener('click', onNav);
+$('#modes').addEventListener('click', e => { const b = e.target.closest('.mode'); if (b && b.dataset.mode !== mode) switchTo({ mode: b.dataset.mode }); });
 $('#skipBtn').onclick = () => decide('skip');
 $('#saveBtn').onclick = () => decide('save');
 $('#undoBtn').onclick = undo;
 $('#savedBtn').onclick = () => { renderSaved(); openSheet('savedSheet'); };
-$('#settingsBtn').onclick = () => { renderSettings(); openSheet('settingsSheet'); };
+$('#settingsBtn').onclick = openSettings;
 $('#savedSearch').addEventListener('input', renderSaved);
 $('#savedCat').addEventListener('change', renderSaved);
 $('#savedList').addEventListener('click', e => { const r = e.target.closest('.row'); if (r) openDetail(r.dataset.id); });
@@ -646,8 +847,6 @@ document.addEventListener('keydown', e => {
   else if ((e.key === 'z' || e.key === 'Backspace') && history.length) undo();
 });
 
-current.cats = current.cats.filter(id => cats().some(c => c.id === id));
-if (!current.cats.length) current.cats = ['hist'];
 renderChrome();
 render();
 })();
