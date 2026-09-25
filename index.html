@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#24403A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stacks">
+<title>Stacks</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗂️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --desk:#24403A; --desk-2:#1B322D; --card:#FDFCF7; --ink:#1D2433; --muted:#5E6675;
+  --red:#C23A3A; --blue:#C9DAEA; --brass:#C9A24A;
+  --serif:"Newsreader", Georgia, "Times New Roman", serif;
+  --sans:"Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --line:1.6rem;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--desk);color:var(--card);font-family:var(--sans);-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+button{cursor:pointer}
+button:disabled{opacity:.35;cursor:default}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.app{height:100%;display:flex;flex-direction:column;max-width:560px;margin:0 auto;
+  padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 4px}
+.brand{font-family:var(--serif);font-style:italic;font-size:1.7rem;line-height:1}
+.hbtns{display:flex;gap:8px}
+.hbtn{background:none;border:1px solid rgba(253,252,247,.3);color:var(--card);border-radius:999px;padding:7px 13px;font:600 .85rem var(--sans)}
+.cats{display:flex;gap:6px;overflow-x:auto;padding:8px 16px 4px;scrollbar-width:none}
+.cats::-webkit-scrollbar{display:none}
+.pill{flex:none;border:1px solid rgba(253,252,247,.3);background:none;color:var(--card);border-radius:999px;padding:6px 12px;font:.85rem var(--sans);white-space:nowrap}
+.pill[aria-pressed=true]{background:var(--card);color:var(--desk);border-color:var(--card);font-weight:600}
+.mix{padding:2px 18px 0;font:italic .85rem var(--serif);color:rgba(253,252,247,.75)}
+.mix:empty{display:none}
+.modes{display:flex;gap:16px;padding:4px 18px 8px}
+.mode{background:none;border:0;border-bottom:2px solid transparent;color:rgba(253,252,247,.6);padding:4px 0;font:.82rem var(--sans)}
+.mode[aria-pressed=true]{color:var(--card);border-bottom-color:var(--brass)}
+
+.stage{flex:1;position:relative;margin:4px 14px 0;min-height:0}
+.card{position:absolute;inset:0;background:var(--card);color:var(--ink);border-radius:6px;
+  box-shadow:0 1px 0 rgba(0,0,0,.25),0 14px 32px rgba(0,0,0,.35);display:flex;flex-direction:column;
+  touch-action:pan-y;user-select:none;-webkit-user-select:none;overflow:hidden;will-change:transform}
+.card.back{transform:translateY(10px) scale(.97);filter:brightness(.93)}
+.card.rise{animation:rise .18s ease-out}
+@keyframes rise{from{transform:translateY(10px) scale(.97)}to{transform:none}}
+.card::after{content:"";position:absolute;left:50%;bottom:9px;width:14px;height:14px;margin-left:-7px;border-radius:50%;
+  background:var(--desk);box-shadow:inset 0 1px 2px rgba(0,0,0,.5)}
+.card-head{padding:16px 18px 10px;border-bottom:2px solid var(--red)}
+.meta{display:flex;justify-content:space-between;gap:12px;font-size:.78rem;color:var(--muted)}
+.meta .venue{font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meta .cites{flex:none}
+.title{font-family:var(--serif);font-weight:600;font-size:1.3rem;line-height:1.25;margin:6px 0}
+.authors{font-family:var(--serif);font-style:italic;font-size:.97rem;color:#3A4252}
+.abs{flex:1;overflow-y:auto;padding:var(--line) 18px 34px;font-family:var(--serif);font-size:1.02rem;line-height:var(--line);
+  background-image:repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--line) - 1px),var(--blue) calc(var(--line) - 1px),var(--blue) var(--line));
+  background-attachment:local;-webkit-overflow-scrolling:touch}
+.abs p{margin:0}
+.stamp{position:absolute;top:18px;padding:3px 10px;border:3px solid;border-radius:4px;font:700 1.35rem var(--sans);letter-spacing:.08em;opacity:0;pointer-events:none;z-index:2;background:rgba(253,252,247,.85)}
+.stamp.save{right:16px;color:var(--red);transform:rotate(8deg)}
+.stamp.skip{left:16px;color:var(--muted);transform:rotate(-8deg)}
+.notice{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;
+  border:1px dashed rgba(253,252,247,.3);border-radius:6px;font-family:var(--serif);font-size:1.05rem;line-height:1.5;color:rgba(253,252,247,.85)}
+.notice button{margin-top:14px}
+
+.actions{display:flex;justify-content:center;align-items:center;gap:20px;padding:14px 0 16px}
+.act{border:0;border-radius:999px;font:600 .95rem var(--sans);padding:13px 26px}
+.act.skip{background:rgba(253,252,247,.12);color:var(--card)}
+.act.save{background:var(--card);color:var(--desk)}
+.act.undo{background:none;color:rgba(253,252,247,.75);padding:10px 8px;font-weight:400}
+
+.sheet{position:fixed;inset:0;z-index:10;background:var(--card);color:var(--ink);display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
+  transform:translateY(100%);visibility:hidden;transition:transform .25s ease,visibility 0s linear .25s}
+.sheet.open{transform:none;visibility:visible;transition:transform .25s ease}
+#detailSheet{z-index:11}
+.sheet > *{width:100%;max-width:560px;margin-left:auto;margin-right:auto}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:2px solid var(--red)}
+.sheet h2{font-family:var(--serif);font-size:1.45rem;font-weight:600;margin:0}
+.close{background:none;border:0;color:var(--desk);font:600 .9rem var(--sans);padding:8px 0 8px 12px}
+.sheet-tools{display:flex;gap:8px;padding:12px 18px 4px}
+.sheet-body{flex:1;overflow-y:auto;padding:0 18px 24px}
+.sheet-foot{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--blue)}
+input,select,textarea{font:1rem var(--sans);padding:9px 10px;border:1px solid #CFD6DF;border-radius:6px;background:#fff;color:var(--ink);width:100%}
+.sheet-tools select{width:auto;max-width:45%}
+.row{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--blue);padding:12px 0;color:inherit;font:inherit}
+.row .t{font-family:var(--serif);font-weight:600;font-size:1.03rem;line-height:1.3}
+.row .a{font-size:.8rem;color:var(--muted);margin-top:4px}
+.empty{font-family:var(--serif);color:var(--muted);padding:28px 0;line-height:1.5}
+.btn{display:inline-block;background:var(--desk);color:var(--card);border:1px solid var(--desk);border-radius:999px;padding:10px 16px;font:600 .9rem var(--sans);text-decoration:none}
+.btn.ghost{background:none;color:var(--desk)}
+.btn.danger{background:none;color:var(--red);border-color:var(--red)}
+
+.d-meta{font-size:.82rem;color:var(--muted);margin-top:16px;line-height:1.5}
+.d-title{font-family:var(--serif);font-weight:600;font-size:1.5rem;line-height:1.22;margin:8px 0}
+.d-authors{font-family:var(--serif);font-style:italic;font-size:1rem;color:#3A4252}
+.d-abs{font-family:var(--serif);font-size:1.04rem;line-height:1.6;margin:18px 0}
+.links{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 22px}
+
+.sheet h3{font-family:var(--serif);font-size:1.12rem;font-weight:600;margin:24px 0 8px}
+.hint{font-size:.82rem;color:var(--muted);line-height:1.45;margin:6px 0 0}
+.hint a{color:var(--desk)}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.grid3 label,.stack label{font-size:.78rem;color:var(--muted);display:block;margin-bottom:4px}
+.stack > *+*{margin-top:8px}
+.check{display:flex;align-items:center;gap:8px;font-size:.9rem}
+.check input{width:auto}
+.catrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--blue)}
+.catrow .q{font-size:.76rem;color:var(--muted);margin-top:2px;word-break:break-word}
+.catrow button{background:none;border:0;color:var(--red);font:600 .82rem var(--sans);flex:none}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px}
+
+.toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:20;
+  background:var(--ink);color:var(--card);padding:9px 16px;border-radius:999px;font-size:.88rem;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">Stacks</div>
+    <div class="hbtns">
+      <button class="hbtn" id="savedBtn">Saved</button>
+      <button class="hbtn" id="settingsBtn" aria-label="Settings">Settings</button>
+    </div>
+  </header>
+  <nav class="cats" id="cats" aria-label="Categories"></nav>
+  <div class="mix" id="mix" aria-live="polite"></div>
+  <div class="modes" id="modes" aria-label="Order">
+    <button class="mode" data-mode="cited">Most cited</button>
+    <button class="mode" data-mode="recent">Last 5 years</button>
+    <button class="mode" data-mode="shuffle">Shuffle</button>
+  </div>
+  <main class="stage" id="stage"></main>
+  <div class="actions">
+    <button class="act skip" id="skipBtn">Skip</button>
+    <button class="act undo" id="undoBtn">Undo</button>
+    <button class="act save" id="saveBtn">Save</button>
+  </div>
+</div>
+
+<section class="sheet" id="savedSheet" aria-label="Saved papers">
+  <div class="sheet-head"><h2>Saved papers</h2><button class="close" data-close="savedSheet">Close</button></div>
+  <div class="sheet-tools"><input id="savedSearch" type="search" placeholder="Search titles and authors"><select id="savedCat"></select></div>
+  <div class="sheet-body" id="savedList"></div>
+  <div class="sheet-foot"><button class="btn" id="bibBtn">Export BibTeX</button><button class="btn ghost" id="copyBibBtn">Copy BibTeX</button></div>
+</section>
+
+<section class="sheet" id="detailSheet" aria-label="Paper">
+  <div class="sheet-head"><h2>Paper</h2><button class="close" data-close="detailSheet">Back</button></div>
+  <div class="sheet-body" id="detailBody"></div>
+</section>
+
+<section class="sheet" id="settingsSheet" aria-label="Settings">
+  <div class="sheet-head"><h2>Settings</h2><button class="close" data-close="settingsSheet">Done</button></div>
+  <div class="sheet-body">
+    <h3>OpenAlex API key</h3>
+    <input id="keyInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your key">
+    <p class="hint">Free. Create an account at <a href="https://openalex.org" target="_blank" rel="noopener">openalex.org</a>, then copy the key from <a href="https://openalex.org/settings/api" target="_blank" rel="noopener">openalex.org/settings/api</a>. Without a key you get a small daily allowance, enough to try the app.</p>
+
+    <h3>Filters</h3>
+    <div class="grid3">
+      <div><label for="yFrom">From year</label><input id="yFrom" type="number" inputmode="numeric"></div>
+      <div><label for="yTo">To year</label><input id="yTo" type="number" inputmode="numeric"></div>
+      <div><label for="minC">Min. citations</label><input id="minC" type="number" inputmode="numeric" min="0"></div>
+    </div>
+
+    <h3>Categories</h3>
+    <div id="catList"></div>
+    <div class="stack" style="margin-top:12px">
+      <div><label for="newName">Name</label><input id="newName" placeholder="Cultural markets"></div>
+      <div><label for="newQ">Search terms</label><input id="newQ" placeholder='"comic books" AND (industry OR market)'></div>
+      <label class="check"><input type="checkbox" id="newEcon" checked> Economics papers only</label>
+      <button class="btn" id="addCatBtn">Add category</button>
+      <p class="hint">Searches titles, abstracts and full text. Use quotes for phrases and AND, OR, NOT in capitals.</p>
+    </div>
+
+    <h3>Your data</h3>
+    <p class="hint" style="margin:0 0 10px">Everything is stored in this browser only. Export a backup before clearing browser data or switching phones.</p>
+    <div class="btnrow">
+      <button class="btn ghost" id="exportBtn">Export backup</button>
+      <button class="btn ghost" id="importBtn">Import backup</button>
+      <button class="btn danger" id="resetSeenBtn">Show skipped papers again</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+  </div>
+</section>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const YEAR = new Date().getFullYear();
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem('stacks.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('stacks.' + k, JSON.stringify(v)); } catch { toast('Could not save to browser storage'); } }
+};
+
+// Field ids in OpenAlex's topic hierarchy: 20 = Economics, Econometrics and Finance; 33 = Social Sciences; 12 = Arts and Humanities
+const DEFAULT_CATS = [
+  { id: 'hist', name: 'Economic history', field: '20|12',
+    q: '"economic history" OR cliometrics OR "industrial revolution" OR "historical persistence" OR "long-run development"' },
+  { id: 'polecon', name: 'Political economy', field: '20|33',
+    q: '"political economy" OR elections OR voting OR democratization OR lobbying OR "state capacity" OR "political institutions"' },
+  { id: 'lawecon', name: 'Law & economics', field: '20|33',
+    q: '"law and economics" OR "legal origins" OR litigation OR "property rights" OR "contract enforcement" OR courts' },
+  { id: 'dev', name: 'Development', field: '20',
+    q: '"development economics" OR "developing countries" OR poverty OR microfinance OR "randomized controlled trial" OR "informal sector"' },
+  { id: 'france', name: 'France', field: '20|33|12', q: 'France OR French OR Paris' }
+];
+
+let apiKey = LS.get('key', '');
+let settings = Object.assign({ yearFrom: 1950, yearTo: YEAR, minCites: 10 }, LS.get('settings', {}));
+let customCats = LS.get('cats', []);
+let saved = LS.get('saved', []);
+let seen = new Set(LS.get('seen', []));
+let pages = LS.get('pages', {});
+const counts = {};
+let current = { cats: LS.get('lastCats', null) || [LS.get('lastCat', 'hist')], mode: LS.get('lastMode', 'cited') };
+const noField = new Set();
+let queue = [], loading = false, lastError = null, exhausted = false, token = 0;
+const history = [];
+
+const cats = () => [...DEFAULT_CATS, ...customCats];
+const selected = () => { const s = cats().filter(c => current.cats.includes(c.id)); return s.length ? s : [cats()[0]]; };
+// Selected categories are combined with AND; their field filters are intersected.
+function combined() {
+  const s = selected();
+  const q = s.length === 1 ? s[0].q : s.map(c => `(${c.q})`).join(' AND ');
+  const fs = s.filter(c => c.field).map(c => c.field.split('|'));
+  let field = '';
+  if (fs.length) field = fs.slice(1).reduce((acc, f) => acc.filter(x => f.includes(x)), fs[0]).join('|');
+  return { key: s.map(c => c.id).sort().join('+'), name: s.map(c => c.name).join(' + '), q, field };
+}
+const qKey = () => [combined().key, current.mode, settings.yearFrom, settings.yearTo, settings.minCites].join('|');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const persistSeen = () => LS.set('seen', [...seen].slice(-20000));
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* ---------- OpenAlex ---------- */
+function buildUrl(cat, page, useField) {
+  const f = ['has_abstract:true', 'type:article'];
+  const from = current.mode === 'recent' ? Math.max(settings.yearFrom, YEAR - 5) : settings.yearFrom;
+  f.push(`publication_year:${from}-${settings.yearTo}`);
+  if (settings.minCites > 0) f.push(`cited_by_count:>${settings.minCites - 1}`);
+  if (useField && cat.field) f.push(`primary_topic.field.id:${cat.field}`);
+  const p = new URLSearchParams();
+  if (cat.q) p.set('search', cat.q);
+  p.set('filter', f.join(','));
+  p.set('sort', 'cited_by_count:desc');
+  p.set('per_page', '25');
+  p.set('page', String(page));
+  p.set('select', 'id,doi,title,publication_year,authorships,abstract_inverted_index,primary_location,best_oa_location,cited_by_count,primary_topic');
+  if (apiKey) p.set('api_key', apiKey);
+  return 'https://api.openalex.org/works?' + p.toString();
+}
+
+async function getJSON(cat, page) {
+  let res;
+  try {
+    const nf = noField.has(cat.key);
+    res = await fetch(buildUrl(cat, page, !nf));
+    if (res.status === 400 && cat.field && !nf) { noField.add(cat.key); res = await fetch(buildUrl(cat, page, false)); }
+  } catch { throw new Error('Could not reach OpenAlex. Check your connection.'); }
+  if (!res.ok) {
+    if ([401, 403].includes(res.status)) throw new Error('OpenAlex rejected the API key. Check it in Settings.');
+    if ([402, 409, 429].includes(res.status)) throw new Error(apiKey
+      ? 'Today\u2019s OpenAlex allowance is used up. It resets at midnight UTC.'
+      : 'The no-key allowance is used up. Add a free OpenAlex key in Settings.');
+    throw new Error(`OpenAlex returned an error (${res.status}).`);
+  }
+  return res.json();
+}
+
+function plain(s) {
+  if (!s) return '';
+  const text = new DOMParser().parseFromString(s, 'text/html').body.textContent || '';
+  return text.replace(/\s+/g, ' ').trim();
+}
+function invToText(inv) {
+  if (!inv) return '';
+  const out = [];
+  for (const [w, pos] of Object.entries(inv)) for (const i of pos) out[i] = w;
+  return out.filter(Boolean).join(' ');
+}
+function norm(w) {
+  return {
+    id: w.id.split('/').pop(),
+    title: plain(w.title) || 'Untitled',
+    year: w.publication_year || '',
+    authors: (w.authorships || []).map(a => a.author?.display_name).filter(Boolean),
+    venue: w.primary_location?.source?.display_name || '',
+    abstract: plain(invToText(w.abstract_inverted_index)).replace(/^abstract[\s:.\-]*/i, ''),
+    doi: w.doi || '',
+    oa: w.best_oa_location?.pdf_url || w.best_oa_location?.landing_page_url || '',
+    landing: w.primary_location?.landing_page_url || '',
+    cites: w.cited_by_count || 0,
+    topic: w.primary_topic?.display_name || ''
+  };
+}
+
+async function fetchMore() {
+  if (loading || exhausted) return;
+  const my = ++token;
+  loading = true; lastError = null; render();
+  const cat = combined(), key = qKey();
+  const savedIds = new Set(saved.map(s => s.id));
+  try {
+    let added = 0, tries = 0;
+    while (added < 5 && tries < 5 && !exhausted) {
+      tries++;
+      let page;
+      if (current.mode === 'shuffle') {
+        const max = counts[key] ? Math.max(1, Math.min(400, Math.ceil(counts[key] / 25))) : 1;
+        page = 1 + Math.floor(Math.random() * max);
+      } else page = pages[key] || 1;
+      const data = await getJSON(cat, page);
+      if (my !== token) return;
+      counts[key] = data.meta?.count ?? 0;
+      const results = data.results || [];
+      for (const w of results) {
+        const p = norm(w);
+        if (p.abstract.length < 80 || seen.has(p.id) || savedIds.has(p.id) || queue.some(q => q.id === p.id)) continue;
+        queue.push(p); added++;
+      }
+      if (current.mode === 'shuffle') {
+        if (!counts[key] || (counts[key] <= 25 && !added)) exhausted = true;
+      } else {
+        pages[key] = page + 1; LS.set('pages', pages);
+        if (!results.length || page * 25 >= Math.min(counts[key], 10000)) exhausted = true;
+      }
+    }
+  } catch (e) {
+    if (my !== token) return;
+    lastError = e.message;
+  }
+  loading = false;
+  render();
+}
+
+/* ---------- Rendering ---------- */
+function fmtAuthors(a, max = 3) {
+  if (!a.length) return 'Unknown author';
+  if (a.length <= max) return a.length === 1 ? a[0] : a.slice(0, -1).join(', ') + ' & ' + a[a.length - 1];
+  const rest = a.length - max;
+  return a.slice(0, max).join(', ') + ` and ${rest} other${rest > 1 ? 's' : ''}`;
+}
+const fmtCites = n => `${n.toLocaleString()} citation${n === 1 ? '' : 's'}`;
+
+function cardEl(p, back) {
+  const el = document.createElement('article');
+  el.className = 'card' + (back ? ' back' : '');
+  el.dataset.id = p.id;
+  el.innerHTML = `
+    <div class="stamp save">SAVED</div><div class="stamp skip">SKIPPED</div>
+    <div class="card-head">
+      <div class="meta"><span class="venue">${esc(p.year)}${p.venue ? ', ' + esc(p.venue) : ''}</span><span class="cites">${fmtCites(p.cites)}</span></div>
+      <div class="title">${esc(p.title)}</div>
+      <div class="authors">${esc(fmtAuthors(p.authors))}</div>
+    </div>
+    <div class="abs"><p>${esc(p.abstract)}</p></div>`;
+  return el;
+}
+
+function renderChrome() {
+  const nav = $('#cats');
+  nav.innerHTML = cats().map(c => `<button class="pill" data-cat="${esc(c.id)}" aria-pressed="${current.cats.includes(c.id)}">${esc(c.name)}</button>`).join('');
+  const s = selected();
+  $('#mix').textContent = s.length > 1
+    ? 'Only papers matching ' + s.map(c => c.name).join(' and ')
+    : (LS.get('mixedOnce', false) ? '' : 'Tap another category to combine them');
+  document.querySelectorAll('.mode').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === current.mode));
+}
+
+function render() {
+  $('#savedBtn').textContent = `Saved ${saved.length}`;
+  const stage = $('#stage');
+  const top = stage.querySelector('.card:not(.back):not(.leaving)');
+  if (queue.length) {
+    if (!top || top.dataset.id !== queue[0].id) {
+      stage.innerHTML = '';
+      if (queue[1]) stage.append(cardEl(queue[1], true));
+      const el = cardEl(queue[0], false);
+      el.classList.add('rise');
+      stage.append(el); bindDrag(el);
+    } else {
+      stage.querySelectorAll('.card.back, .notice').forEach(n => n.remove());
+      if (queue[1]) stage.prepend(cardEl(queue[1], true));
+    }
+  } else {
+    stage.innerHTML = '';
+    const n = document.createElement('div'); n.className = 'notice';
+    if (lastError) { n.innerHTML = `<div>${esc(lastError)}</div><button class="hbtn" id="retryBtn">Try again</button>`; }
+    else if (loading) n.textContent = 'Pulling cards from the drawer\u2026';
+    else if (exhausted) n.textContent = 'You\u2019ve been through every card in this drawer. Widen the years or lower the citation minimum in Settings, or pick another category.';
+    else n.textContent = 'Pulling cards from the drawer\u2026';
+    stage.append(n);
+    const r = $('#retryBtn'); if (r) r.onclick = () => { lastError = null; fetchMore(); };
+  }
+  $('#skipBtn').disabled = $('#saveBtn').disabled = !queue.length;
+  $('#undoBtn').disabled = !history.length;
+  if (queue.length < 4 && !loading && !lastError && !exhausted) fetchMore();
+}
+
+/* ---------- Decisions ---------- */
+function decide(action, el) {
+  const p = queue.shift(); if (!p) return;
+  seen.add(p.id); persistSeen();
+  if (action === 'save') {
+    saved.unshift({ ...p, cat: combined().name, savedAt: Date.now() });
+    LS.set('saved', saved);
+  }
+  history.push({ p, action }); if (history.length > 30) history.shift();
+  el = el || $('#stage .card:not(.back)');
+  if (el) {
+    const dir = action === 'save' ? 1 : -1;
+    el.classList.add('leaving');
+    el.querySelector('.stamp.' + action).style.opacity = 1;
+    el.style.transition = 'transform .3s ease-in, opacity .3s ease-in';
+    el.style.transform = `translateX(${dir * (window.innerWidth + 80)}px) rotate(${dir * 16}deg)`;
+    el.style.opacity = '0';
+    setTimeout(render, 200);
+  } else render();
+}
+
+function undo() {
+  const h = history.pop(); if (!h) return;
+  seen.delete(h.p.id); persistSeen();
+  if (h.action === 'save') { saved = saved.filter(s => s.id !== h.p.id); LS.set('saved', saved); }
+  queue.unshift(h.p);
+  render();
+}
+
+function bindDrag(el) {
+  let sx = 0, sy = 0, dx = 0, axis = null, pid = null;
+  const stamps = () => [el.querySelector('.stamp.save'), el.querySelector('.stamp.skip')];
+  const reset = () => {
+    el.style.transition = 'transform .2s ease'; el.style.transform = '';
+    stamps().forEach(s => s.style.opacity = 0);
+  };
+  el.addEventListener('pointerdown', e => {
+    if (e.button > 0) return;
+    sx = e.clientX; sy = e.clientY; dx = 0; axis = null; pid = e.pointerId;
+    el.classList.remove('rise'); el.style.transition = 'none';
+  });
+  el.addEventListener('pointermove', e => {
+    if (pid !== e.pointerId) return;
+    const x = e.clientX - sx, y = e.clientY - sy;
+    if (!axis) {
+      if (Math.abs(x) < 8 && Math.abs(y) < 8) return;
+      axis = Math.abs(x) > Math.abs(y) ? 'x' : 'y';
+      if (axis === 'x') { try { el.setPointerCapture(pid); } catch {} }
+    }
+    if (axis !== 'x') return;
+    dx = x;
+    el.style.transform = `translateX(${dx}px) rotate(${dx / 18}deg)`;
+    const [sv, sk] = stamps();
+    sv.style.opacity = Math.max(0, Math.min(1, dx / 100));
+    sk.style.opacity = Math.max(0, Math.min(1, -dx / 100));
+  });
+  el.addEventListener('pointerup', e => {
+    if (pid !== e.pointerId) return; pid = null;
+    if (axis === 'x' && Math.abs(dx) > 90) decide(dx > 0 ? 'save' : 'skip', el);
+    else if (axis === 'x') reset();
+    axis = null;
+  });
+  el.addEventListener('pointercancel', e => {
+    if (pid !== e.pointerId) return; pid = null;
+    if (axis === 'x') reset(); axis = null;
+  });
+}
+
+function switchTo(changes) {
+  Object.assign(current, changes);
+  LS.set('lastCats', current.cats); LS.set('lastMode', current.mode);
+  if (current.cats.length > 1) LS.set('mixedOnce', true);
+  token++; queue = []; loading = false; lastError = null; exhausted = false; history.length = 0;
+  renderChrome(); render();
+}
+function refilter() { token++; queue = []; loading = false; lastError = null; exhausted = false; history.length = 0; render(); }
+
+/* ---------- Sheets ---------- */
+function openSheet(id) { $('#' + id).classList.add('open'); }
+function closeSheet(id) { $('#' + id).classList.remove('open'); }
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => closeSheet(b.dataset.close));
+const anyOpen = () => !!document.querySelector('.sheet.open');
+
+function renderSaved() {
+  const sel = $('#savedCat'), prev = sel.value;
+  const names = [...new Set(saved.map(s => s.cat))];
+  sel.innerHTML = `<option value="">All categories</option>` + names.map(n => `<option>${esc(n)}</option>`).join('');
+  sel.value = names.includes(prev) ? prev : '';
+  const q = $('#savedSearch').value.trim().toLowerCase(), cf = sel.value;
+  const list = saved.filter(s => (!cf || s.cat === cf) && (!q || (s.title + ' ' + s.authors.join(' ')).toLowerCase().includes(q)));
+  $('#savedList').innerHTML = list.length
+    ? list.map(s => `<button class="row" data-id="${esc(s.id)}"><div class="t">${esc(s.title)}</div><div class="a">${esc(fmtAuthors(s.authors, 2))}, ${esc(s.year)}. ${esc(s.cat)}</div></button>`).join('')
+    : `<div class="empty">${saved.length ? 'No saved papers match.' : 'Swipe right on a card, or tap Save, to keep a paper here.'}</div>`;
+  $('#bibBtn').disabled = $('#copyBibBtn').disabled = !saved.length;
+}
+
+function openDetail(id) {
+  const s = saved.find(x => x.id === id); if (!s) return;
+  const links = [];
+  if (s.oa) links.push(`<a class="btn" href="${esc(s.oa)}" target="_blank" rel="noopener">Read open-access version</a>`);
+  const pub = s.doi || s.landing;
+  if (pub) links.push(`<a class="btn ${s.oa ? 'ghost' : ''}" href="${esc(pub)}" target="_blank" rel="noopener">Publisher page</a>`);
+  links.push(`<a class="btn ghost" href="https://scholar.google.com/scholar?q=${encodeURIComponent(s.title)}" target="_blank" rel="noopener">Google Scholar</a>`);
+  links.push(`<a class="btn ghost" href="https://openalex.org/works/${esc(s.id)}" target="_blank" rel="noopener">OpenAlex record</a>`);
+  $('#detailBody').innerHTML = `
+    <div class="d-meta">${esc(s.year)}${s.venue ? ', <i>' + esc(s.venue) + '</i>' : ''}<br>${fmtCites(s.cites)}${s.topic ? '. Topic: ' + esc(s.topic) : ''}<br>Saved from ${esc(s.cat)} on ${new Date(s.savedAt).toLocaleDateString()}</div>
+    <div class="d-title">${esc(s.title)}</div>
+    <div class="d-authors">${esc(s.authors.join(', ') || 'Unknown author')}</div>
+    <div class="d-abs">${esc(s.abstract)}</div>
+    <div class="links">${links.join('')}</div>
+    <button class="btn danger" id="removeBtn">Remove from saved</button>`;
+  $('#removeBtn').onclick = () => {
+    saved = saved.filter(x => x.id !== id); LS.set('saved', saved);
+    closeSheet('detailSheet'); renderSaved(); render(); toast('Removed from saved');
+  };
+  openSheet('detailSheet');
+}
+
+/* ---------- Export ---------- */
+function bibEntry(s) {
+  const strip = t => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z]/g, '');
+  const last = strip((s.authors[0] || 'anon').split(' ').pop()).toLowerCase() || 'anon';
+  const word = strip(s.title.split(/\s+/).find(t => strip(t).length > 3) || 'paper').toLowerCase();
+  const f = [
+    `  title = {${s.title}}`,
+    s.authors.length && `  author = {${s.authors.join(' and ')}}`,
+    s.year && `  year = {${s.year}}`,
+    s.venue && `  journal = {${s.venue}}`,
+    s.doi && `  doi = {${s.doi.replace(/^https?:\/\/(dx\.)?doi\.org\//, '')}}`,
+    (s.doi || s.landing) && `  url = {${s.doi || s.landing}}`
+  ].filter(Boolean);
+  return `@article{${last}${s.year}${word},\n${f.join(',\n')}\n}`;
+}
+const allBib = () => saved.map(bibEntry).join('\n\n') + '\n';
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ---------- Settings ---------- */
+function renderSettings() {
+  $('#keyInput').value = apiKey;
+  $('#yFrom').value = settings.yearFrom; $('#yTo').value = settings.yearTo; $('#minC').value = settings.minCites;
+  $('#catList').innerHTML = cats().map(c => `
+    <div class="catrow"><div><div>${esc(c.name)}</div><div class="q">${esc(c.q)}</div></div>
+    ${customCats.some(x => x.id === c.id) ? `<button data-del="${esc(c.id)}">Delete</button>` : ''}</div>`).join('');
+  $('#catList').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+    customCats = customCats.filter(c => c.id !== b.dataset.del); LS.set('cats', customCats);
+    if (current.cats.includes(b.dataset.del)) {
+      const rest = current.cats.filter(x => x !== b.dataset.del);
+      switchTo({ cats: rest.length ? rest : ['hist'] });
+    } else renderChrome();
+    renderSettings();
+  });
+}
+let settingsDirty = false;
+function readFilters() {
+  const n = (v, d) => { const x = parseInt(v, 10); return Number.isFinite(x) ? x : d; };
+  let yf = n($('#yFrom').value, 1950), yt = n($('#yTo').value, YEAR);
+  yf = Math.max(1700, Math.min(yf, YEAR)); yt = Math.max(yf, Math.min(yt, YEAR));
+  const next = { yearFrom: yf, yearTo: yt, minCites: Math.max(0, n($('#minC').value, 0)) };
+  if (JSON.stringify(next) !== JSON.stringify(settings)) { settings = next; LS.set('settings', settings); settingsDirty = true; }
+}
+['#yFrom', '#yTo', '#minC'].forEach(s => $(s).addEventListener('change', readFilters));
+$('#keyInput').addEventListener('change', () => { apiKey = $('#keyInput').value.trim(); LS.set('key', apiKey); settingsDirty = true; });
+$('#settingsSheet .close').addEventListener('click', () => {
+  readFilters();
+  if (settingsDirty) { settingsDirty = false; refilter(); }
+});
+$('#addCatBtn').onclick = () => {
+  const name = $('#newName').value.trim(), q = $('#newQ').value.trim();
+  if (!name || !q) { toast('Give the category a name and search terms'); return; }
+  const c = { id: 'c' + Date.now().toString(36), name, q, field: $('#newEcon').checked ? '20' : '' };
+  customCats.push(c); LS.set('cats', customCats);
+  $('#newName').value = ''; $('#newQ').value = '';
+  renderSettings(); renderChrome(); toast('Category added');
+};
+$('#exportBtn').onclick = () => download(`stacks-backup-${new Date().toISOString().slice(0, 10)}.json`,
+  JSON.stringify({ version: 1, saved, seen: [...seen], cats: customCats, settings }, null, 2), 'application/json');
+$('#importBtn').onclick = () => $('#importFile').click();
+$('#importFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    const have = new Set(saved.map(s => s.id));
+    (d.saved || []).forEach(s => { if (s && s.id && !have.has(s.id)) { saved.push(s); have.add(s.id); } });
+    saved.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+    (d.seen || []).forEach(id => seen.add(id));
+    const haveCat = new Set(customCats.map(c => c.id));
+    (d.cats || []).forEach(c => { if (c && c.id && !haveCat.has(c.id)) customCats.push(c); });
+    LS.set('saved', saved); persistSeen(); LS.set('cats', customCats);
+    renderSettings(); renderChrome(); refilter(); toast('Backup imported');
+  } catch { toast('That file is not a Stacks backup'); }
+  e.target.value = '';
+};
+$('#resetSeenBtn').onclick = () => {
+  if (!confirm('Skipped papers will appear in your stacks again. Saved papers stay saved.')) return;
+  seen = new Set(saved.map(s => s.id)); persistSeen(); pages = {}; LS.set('pages', pages);
+  refilter(); toast('Skipped papers restored');
+};
+
+/* ---------- Wiring ---------- */
+$('#cats').addEventListener('click', e => {
+  const b = e.target.closest('.pill'); if (!b) return;
+  const id = b.dataset.cat;
+  const next = current.cats.includes(id) ? current.cats.filter(x => x !== id) : [...current.cats, id];
+  if (!next.length) { toast('Keep at least one category selected'); return; }
+  switchTo({ cats: next });
+});
+$('#modes').addEventListener('click', e => { const b = e.target.closest('.mode'); if (b && b.dataset.mode !== current.mode) switchTo({ mode: b.dataset.mode }); });
+$('#skipBtn').onclick = () => decide('skip');
+$('#saveBtn').onclick = () => decide('save');
+$('#undoBtn').onclick = undo;
+$('#savedBtn').onclick = () => { renderSaved(); openSheet('savedSheet'); };
+$('#settingsBtn').onclick = () => { renderSettings(); openSheet('settingsSheet'); };
+$('#savedSearch').addEventListener('input', renderSaved);
+$('#savedCat').addEventListener('change', renderSaved);
+$('#savedList').addEventListener('click', e => { const r = e.target.closest('.row'); if (r) openDetail(r.dataset.id); });
+$('#bibBtn').onclick = () => download('stacks.bib', allBib(), 'application/x-bibtex');
+$('#copyBibBtn').onclick = async () => {
+  try { await navigator.clipboard.writeText(allBib()); toast('BibTeX copied'); } catch { toast('Copy failed. Use Export instead.'); }
+};
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { const open = [...document.querySelectorAll('.sheet.open')].pop(); if (open) open.querySelector('.close').click(); return; }
+  if (anyOpen() || /input|textarea|select/i.test(e.target.tagName)) return;
+  if (e.key === 'ArrowRight' && queue.length) decide('save');
+  else if (e.key === 'ArrowLeft' && queue.length) decide('skip');
+  else if ((e.key === 'z' || e.key === 'Backspace') && history.length) undo();
+});
+
+current.cats = current.cats.filter(id => cats().some(c => c.id === id));
+if (!current.cats.length) current.cats = ['hist'];
+renderChrome();
+render();
+})();
+</script>
+</body>
+</html>
